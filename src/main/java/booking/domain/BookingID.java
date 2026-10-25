@@ -2,9 +2,9 @@ package booking.domain;
 
 import java.util.UUID;
 
-public class BookingId {
+public class BookingID {
     private final String id;
-    public BookingId(){
+    public BookingID(){
         this.id = UUID.randomUUID().toString();
     }
     public String getId() {

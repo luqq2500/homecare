@@ -26,7 +26,7 @@ public class Booking {
             LocalDateTime start,
             LocalDateTime end
     ) {
-        this.id = new BookingId().getId();
+        this.id = new BookingID().getId();
         this.userId = userId;
         this.providerId = providerId;
         this.categoryId = categoryId;
@@ -69,6 +69,22 @@ public class Booking {
         return this.events;
     }
 
+    public void validateBookingRequireConfirmation(){
+        if (this.status == BookingStatus.RESERVED){
+            throw new BookingAlreadyConfirmedException("Booking has already been reserved. No confirmation is needed.");
+        }
+        if (this.status == BookingStatus.COMPLETED){
+            throw new BookingAlreadyConfirmedException("Booking has already been completed. No confirmation is needed.");
+        }
+        if (this.status == BookingStatus.CANCELLED){
+            throw new BookingAlreadyConfirmedException("Booking has already been cancelled. No confirmation is needed.");
+        }
+    }
+
+    public DomainEvent getRecentEvent(){
+        return this.events.getLast();
+    }
+
     private void validateIsBelongToBooking(String bookingId) throws RuntimeException {
         if (!this.id.equals(bookingId)){
             throw new InvalidBookingException("Booking ID isn't belong to the booking.");
@@ -96,5 +112,13 @@ public class Booking {
         if (start.isAfter(end)){
             throw new InvalidScheduleException("Booking schedule is invalid.");
         }
+    }
+
+    public String getId(){
+        return this.id;
+    }
+
+    public BookingStatus getStatus(){
+        return this.status;
     }
 }
