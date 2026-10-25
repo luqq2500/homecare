@@ -1,18 +1,20 @@
 package booking.domain;
 
+import booking.domain.exception.InvalidBookingStatusLifecycle;
+
 import java.util.List;
 import java.util.Map;
 
 public enum BookingStatus {
     REQUESTED,
-    BOOKED,
+    RESERVED,
     CANCELLED,
     COMPLETED;
 
     // Defines the allowed transitions for each state
     private static final Map<BookingStatus, List<BookingStatus>> STATUS_LIFECYCLE = Map.of(
-            REQUESTED, List.of(BOOKED, CANCELLED),
-            BOOKED, List.of(COMPLETED, CANCELLED),
+            REQUESTED, List.of(RESERVED, CANCELLED),
+            RESERVED, List.of(COMPLETED, CANCELLED),
             CANCELLED, List.of(), // End state
             COMPLETED, List.of()  // End state
     );

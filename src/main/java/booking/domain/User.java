@@ -1,9 +1,11 @@
 package booking.domain;
 
-import java.util.List;
+import booking.domain.exception.UserNotEligibleToAcceptBookingConfirmationException;
+import booking.domain.exception.UserNotEligibleToCancelBookingException;
+import booking.domain.exception.UserNotEligibleToRequestBookingException;
 
 public class User {
-    private String id;
+    private final String id;
     private UserStatus status;
 
     public User(String id, UserStatus status){
@@ -11,35 +13,25 @@ public class User {
         this.status=status;
     }
 
-    public Booking requestBooking (
-            String providerId,
-            String categoryId,
-            List<String> offeringIds,
-            Schedule schedule
-    ) throws RuntimeException {
-        if (this.status != UserStatus.ACTIVE){
-            throw new InvalidCreateBookingRequest("User is not eligible to create a booking request.");
+    public void validateRequestBookingEligibility() throws RuntimeException {
+        if (this.status.equals(UserStatus.INACTIVE)){
+            throw new UserNotEligibleToRequestBookingException("User is not eligible to request a booking.");
         }
-        return new Booking(this.id, providerId, categoryId, offeringIds, schedule);
     }
 
-    public Booking cancelBooking (Booking booking) throws RuntimeException {
-        if (this.status != UserStatus.ACTIVE){
-            throw new InvalidCancelBooking("User is not eligible to cancel a booking.");
+    public void validateAcceptBookingConfirmationEligibility() throws RuntimeException {
+        if (this.status.equals(UserStatus.INACTIVE)){
+            throw new UserNotEligibleToAcceptBookingConfirmationException("User is not eligible to accept a booking confirmation.");
         }
-        booking.setNewStatus(BookingStatus.CANCELLED);
-        return booking;
     }
 
-    public Booking acceptBookingQuotation(Booking booking, Quotation quotation) throws RuntimeException{
-        if (this.status != UserStatus.ACTIVE){
-            throw new InvalidAcceptQuotation("User is not eligible to accept booking quotation");
+    public void validateCancelBookingEligibility() throws RuntimeException {
+        if (this.status.equals(UserStatus.INACTIVE)){
+            throw new UserNotEligibleToCancelBookingException("User is not eligible to cancel a booking.");
         }
-        quotation.validate();
-        booking.setNewOfferings(quotation.offeringIds());
-        booking.setNewSchedule(quotation.schedule());
-        booking.setNewPrice(quotation.price());
-        booking.setNewStatus(BookingStatus.BOOKED);
-        return booking;
+    }
+
+    public String getId() {
+        return id;
     }
 }
