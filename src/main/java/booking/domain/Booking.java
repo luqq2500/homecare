@@ -51,7 +51,7 @@ public class Booking {
     public void edit(String userId, List<String> newOfferingIds, LocalDateTime newStart, LocalDateTime newEnd){
         validateIsBelongToUser(userId);
         if (!this.status.equals(BookingStatus.REQUESTED)){
-            throw new EditBookingException("Only booking in request status can be edit.");
+            throw new BookingStatusPastRequestException("Only booking in request status can be edit.");
         }
         this.offeringIds = List.copyOf(newOfferingIds);
         this.start = newStart;
@@ -71,19 +71,19 @@ public class Booking {
 
     private void validateIsBelongToBooking(String bookingId) throws RuntimeException {
         if (!this.id.equals(bookingId)){
-            throw new InvalidBookingId("Booking ID isn't belong to the booking.");
+            throw new InvalidBookingException("Booking ID isn't belong to the booking.");
         }
     }
 
     private void validateIsBelongToProvider(String providerId) throws RuntimeException {
         if (!this.providerId.equals(providerId)){
-            throw new MismatchBookingProviderId("This booking isn't belong to the provider.");
+            throw new InvalidBookingProviderException("This booking isn't belong to the provider.");
         }
     }
 
     private void validateIsBelongToUser(String userId) throws RuntimeException {
         if (!this.userId.equals(userId)){
-            throw new MismatchBookingUserId("This booking isn't belong to the user.");
+            throw new InvalidBookingUserException("This booking isn't belong to the user.");
         }
     }
 
@@ -94,7 +94,7 @@ public class Booking {
 
     private void validateSchedule(LocalDateTime start, LocalDateTime end) throws RuntimeException {
         if (start.isAfter(end)){
-            throw new InvalidBookingSchedule("Booking schedule is invalid.");
+            throw new InvalidScheduleException("Booking schedule is invalid.");
         }
     }
 }

@@ -1,8 +1,6 @@
 package booking.domain;
 
-import booking.domain.exception.UserNotEligibleToAcceptBookingConfirmationException;
-import booking.domain.exception.UserNotEligibleToCancelBookingException;
-import booking.domain.exception.UserNotEligibleToRequestBookingException;
+import booking.domain.exception.UserInActiveException;
 
 public class User {
     private final String id;
@@ -13,25 +11,17 @@ public class User {
         this.status=status;
     }
 
-    public void validateRequestBookingEligibility() throws RuntimeException {
+    public void validateIsActive() throws RuntimeException {
         if (this.status.equals(UserStatus.INACTIVE)){
-            throw new UserNotEligibleToRequestBookingException("User is not eligible to request a booking.");
-        }
-    }
-
-    public void validateAcceptBookingConfirmationEligibility() throws RuntimeException {
-        if (this.status.equals(UserStatus.INACTIVE)){
-            throw new UserNotEligibleToAcceptBookingConfirmationException("User is not eligible to accept a booking confirmation.");
-        }
-    }
-
-    public void validateCancelBookingEligibility() throws RuntimeException {
-        if (this.status.equals(UserStatus.INACTIVE)){
-            throw new UserNotEligibleToCancelBookingException("User is not eligible to cancel a booking.");
+            throw new UserInActiveException("User is no longer active.");
         }
     }
 
     public String getId() {
         return id;
+    }
+
+    public void inactiveUser(){
+        this.status = UserStatus.INACTIVE;
     }
 }
