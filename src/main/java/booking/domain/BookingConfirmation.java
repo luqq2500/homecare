@@ -8,17 +8,14 @@ public record BookingConfirmation(
         String id,
         String providerId,
         String bookingId,
-        List<String> offeringIds,
         LocalDateTime start,
         LocalDateTime end,
-        List<Map<String, Integer>> lineItemQuotation,
-        int travelFee
+        List<Map<List<String>, Integer>> quotes
 ){
-    public int getPriceTotal(){
-        int sumLineItem = lineItemQuotation().stream()
+    public int getTotalPrice(){
+        return this.quotes().stream()
                 .flatMap((lineItem)->lineItem.values().stream())
                 .mapToInt(Integer::intValue)
                 .sum();
-        return sumLineItem + travelFee;
     }
 }

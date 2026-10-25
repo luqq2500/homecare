@@ -1,13 +1,7 @@
 package booking.domain;
 
-import booking.domain.event.BookingCancelled;
-import booking.domain.event.BookingRequested;
-import booking.domain.event.BookingReserved;
-import booking.domain.event.DomainEvent;
-import booking.domain.exception.InvalidBookingId;
-import booking.domain.exception.InvalidBookingSchedule;
-import booking.domain.exception.MismatchBookingProviderId;
-import booking.domain.exception.MismatchBookingUserId;
+import booking.domain.event.*;
+import booking.domain.exception.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -22,7 +16,6 @@ public class Booking {
     private LocalDateTime start;
     private LocalDateTime end;
     private BookingStatus status;
-    private int priceTotal;
     private List<DomainEvent> events = new ArrayList<>();
 
     public Booking(
@@ -45,25 +38,34 @@ public class Booking {
         events.add(new BookingRequested(userId, providerId, categoryId, offeringIds, start, end));
     }
 
-    public void cancel(User user) {
-        validateIsBelongToUser(user.getId());
-        transitionStatusTo(BookingStatus.CANCELLED);
-        events.add(new BookingCancelled(user.getId()));
-    }
-
     public void accept(User user, BookingConfirmation bookingConfirmation){
         validateIsBelongToBooking(bookingConfirmation.bookingId());
         validateIsBelongToUser(user.getId());
         validateIsBelongToProvider(bookingConfirmation.providerId());
-        this.offeringIds = List.copyOf(bookingConfirmation.offeringIds());
         this.start = bookingConfirmation.start();
         this.end = bookingConfirmation.end();
-        this.priceTotal = bookingConfirmation.getPriceTotal();
         transitionStatusTo(BookingStatus.RESERVED);
         events.add(new BookingReserved(userId, bookingConfirmation));
     }
 
-    public List<DomainEvent> getEvents(){
+    public void edit(String userId, List<String> newOfferingIds, LocalDateTime newStart, LocalDateTime newEnd){
+        validateIsBelongToUser(userId);
+        if (!this.status.equals(BookingStatus.REQUESTED)){
+            throw new EditBookingException("Only booking in request status can be edit.");
+        }
+        this.offeringIds = List.copyOf(newOfferingIds);
+        this.start = newStart;
+        this.end = newEnd;
+        events.add(new BookingEdited(userId, newOfferingIds, newStart, newEnd));
+    }
+
+    public void cancel(String userId) {
+        validateIsBelongToUser(userId);
+        transitionStatusTo(BookingStatus.CANCELLED);
+        events.add(new BookingCancelled(userId));
+    }
+
+    public List<DomainEvent> getBookingEvents(){
         return this.events;
     }
 
@@ -86,9 +88,7 @@ public class Booking {
     }
 
     private void transitionStatusTo(BookingStatus bookingStatus) {
-        if (this.status != null){
-            this.status.validateStatusLifecycleTransition(bookingStatus);
-        }
+        this.status.validateStatusLifecycleTransition(bookingStatus);
         this.status = bookingStatus;
     }
 
