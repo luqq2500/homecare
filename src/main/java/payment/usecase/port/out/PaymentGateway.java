@@ -7,4 +7,5 @@ public interface PaymentGateway {
     void capture(String paymentId);
     void release(String paymentId);
     void refund(String paymentId, BigDecimal amount);
+    void voidAuth(String paymentId);
 }
