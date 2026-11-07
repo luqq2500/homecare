@@ -7,15 +7,19 @@ import reservation.usecase.dto.CancelReservationResponse;
 import reservation.usecase.exception.ReservationNotFoundException;
 import reservation.usecase.port.in.ReservationCanceller;
 import reservation.usecase.port.out.ReservationRepository;
+import reservation.usecase.port.out.ReservationIEPublisher;
+import ie.ReservationCancelledIE;
 
 import java.time.Instant;
 
 public class CancelReservation implements ReservationCanceller {
 
     private final ReservationRepository repository;
+    private final ReservationIEPublisher publisher;
 
-    public CancelReservation(ReservationRepository repository) {
+    public CancelReservation(ReservationRepository repository, ReservationIEPublisher publisher) {
         this.repository = repository;
+        this.publisher = publisher;
     }
 
     @Override
@@ -23,15 +27,13 @@ public class CancelReservation implements ReservationCanceller {
         ReservationId id = ReservationId.of(request.reservationId());
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
-
-        Instant now = Instant.now();
-        if ("CUSTOMER".equalsIgnoreCase(request.cancelledBy())) {
-            reservation.cancelByCustomer(now);
+        if ("CUSTOMER".equals(request.cancelledBy())) {
+            reservation.cancelByCustomer(Instant.now());
         } else {
-            reservation.cancelByProvider(now);
+            reservation.cancelByProvider(Instant.now());
         }
         repository.save(reservation);
-
+        publisher.publish(new ReservationCancelledIE(id.value(), Instant.now()));
         return new CancelReservationResponse(id.value(), reservation.status().name());
     }
 }
