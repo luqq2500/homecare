@@ -4,5 +4,6 @@ public enum PaymentStatus {
     AUTHORISED,
     HELD,
     RELEASED,
-    REFUNDED
+    REFUNDED,
+    VOIDED
 }
