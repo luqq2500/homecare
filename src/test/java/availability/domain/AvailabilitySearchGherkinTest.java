@@ -14,7 +14,7 @@ class AvailabilitySearchGherkinTest {
     @Test
     void searchReturnsExactMatchWhenSlotCoversWindow() {
         Availability availability = Availability.forProvider("alice");
-        availability.addSlot(BookableSlot.of(Instant.parse("2026-11-10T09:00:00Z"), 8));
+        availability.addSlot(BookableSlot.of(Instant.parse("2026-11-10T09:00:00Z"), 4));
         assertTrue(availability.isAvailable(START, 2));
     }
 
