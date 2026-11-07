@@ -9,13 +9,19 @@ import provider.usecase.dto.SetOfferingResponse;
 import provider.usecase.exception.ProviderNotFoundException;
 import provider.usecase.port.in.OfferingSetter;
 import provider.usecase.port.out.ProviderRepository;
+import provider.usecase.port.out.ProviderIEPublisher;
+import ie.ProviderOfferingUpdatedIE;
+
+import java.time.Instant;
 
 public class SetOffering implements OfferingSetter {
 
     private final ProviderRepository repository;
+    private final ProviderIEPublisher publisher;
 
-    public SetOffering(ProviderRepository repository) {
+    public SetOffering(ProviderRepository repository, ProviderIEPublisher publisher) {
         this.repository = repository;
+        this.publisher = publisher;
     }
 
     @Override
@@ -36,6 +42,7 @@ public class SetOffering implements OfferingSetter {
         );
         provider.setOffering(offering);
         repository.save(provider);
+        publisher.publish(new ProviderOfferingUpdatedIE(id.value(), Instant.now()));
 
         return new SetOfferingResponse(id.value(), provider.canReceiveNewReservations());
     }
