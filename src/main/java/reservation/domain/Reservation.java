@@ -9,7 +9,7 @@ import java.util.Objects;
 
 /**
  * Aggregate root for a Homa reservation.
- * Enforces the status lifecycle and business invariants from the product specification.
+ * Enforces the status lifecycle and business invariants from the product description.
  */
 public class Reservation {
 
@@ -75,32 +75,16 @@ public class Reservation {
         this.status = ReservationStatus.EXPIRED;
     }
 
-    public BigDecimal customerCancellationFee(Instant now) {
-        if (status != ReservationStatus.REQUESTED && status != ReservationStatus.RESERVED) {
-            throw new InvalidStatusTransitionException("Cancellation fee only applicable while cancellable");
-        }
-        Instant feeWindowStart = bookedWindow.start().minusSeconds(24 * 3600);
-        if (now.isBefore(feeWindowStart)) {
-            return BigDecimal.ZERO; // outside fee window → full refund of hours fee
-        }
-        int percent = cancellationTier.feePercent();
-        return hoursFee.amount()
-                .multiply(BigDecimal.valueOf(percent))
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-    }
-
     public BigDecimal providerCancellationFine(Instant now) {
         Instant feeWindowStart = bookedWindow.start().minusSeconds(24 * 3600);
         BigDecimal base = hoursFee.amount();
         if (now.isBefore(feeWindowStart)) {
             return BigDecimal.ZERO;
         }
-        // Late cancellation (<24h) = 20%; no-show / post-check-in would be 30% (ceiling)
         return base.multiply(new BigDecimal("0.20")).setScale(2, RoundingMode.HALF_UP);
     }
 
     public BigDecimal providerNoShowFine() {
-        // Absolute ceiling = 30% of hours fee
         return hoursFee.amount().multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
     }
 
@@ -119,18 +103,61 @@ public class Reservation {
     }
 
     public void markDisputed() {
-        if (status != ReservationStatus.RESERVED && status != ReservationStatus.COMPLETED) {
-            throw new InvalidStatusTransitionException("Dispute only allowed after reservation or completion");
+        if (status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Dispute only allowed while RESERVED");
         }
         this.status = ReservationStatus.DISPUTED;
     }
 
-    public void complete(Instant now) {
+    /**
+     * Provider marks the job completed with evidence.
+     * Action only — does NOT change status. Status stays RESERVED.
+     */
+    public void markJobCompletedWithEvidence(Instant now) {
         if (status != ReservationStatus.RESERVED) {
-            throw new InvalidStatusTransitionException("Can only complete from RESERVED");
+            throw new InvalidStatusTransitionException("Can only mark job completed while RESERVED");
+        }
+        this.completedAt = now;
+    }
+
+    /**
+     * Transition to COMPLETED only when dispute window ends cleanly
+     * or Homa resolves a report.
+     */
+    public void moveToCompletedAfterDisputeWindowOrResolution(Instant now) {
+        if (status != ReservationStatus.RESERVED && status != ReservationStatus.DISPUTED) {
+            throw new InvalidStatusTransitionException("Can only complete from RESERVED or DISPUTED");
         }
         this.status = ReservationStatus.COMPLETED;
-        this.completedAt = now;
+        if (this.completedAt == null) {
+            this.completedAt = now;
+        }
+    }
+
+    public BigDecimal customerNoShowCompensation() {
+        BigDecimal hoursPortion = hoursFee.amount().multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
+        return travelFee.amount().add(hoursPortion);
+    }
+
+    public BigDecimal customerCancellationFee(Instant now, boolean travelIncludedInPrice) {
+        if (status != ReservationStatus.REQUESTED && status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Cancellation fee only applicable while cancellable");
+        }
+        Instant feeWindowStart = bookedWindow.start().minusSeconds(24 * 3600);
+        if (now.isBefore(feeWindowStart)) {
+            return BigDecimal.ZERO;
+        }
+        int percent = cancellationTier.feePercent();
+        BigDecimal base = travelIncludedInPrice
+                ? hoursFee.amount().add(travelFee.amount())
+                : hoursFee.amount();
+        BigDecimal fee = base.multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return fee.min(customerNoShowCompensation());
+    }
+
+    public BigDecimal customerCancellationFee(Instant now) {
+        return customerCancellationFee(now, false);
     }
 
     public boolean isExpired(Instant now) {
