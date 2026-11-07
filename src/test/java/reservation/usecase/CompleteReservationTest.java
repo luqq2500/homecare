@@ -20,7 +20,7 @@ class CompleteReservationTest {
     private final CompleteReservation usecase = new CompleteReservation(repository);
 
     @Test
-    void completeFromReservedTransitionsToCompleted() {
+    void completeFromReservedAfterDisputeWindowTransitionsToCompleted() {
         ReservationId id = ReservationId.generate();
         Reservation reservation = Reservation.request(
                 id, Instant.now(),
@@ -30,6 +30,27 @@ class CompleteReservationTest {
                 CancellationTier.STANDARD
         );
         reservation.accept(Instant.now());
+        when(repository.findById(id)).thenReturn(Optional.of(reservation));
+
+        CompleteReservationResponse response = usecase.complete(new CompleteReservationRequest(id.value()));
+
+        assertEquals(id.value(), response.reservationId());
+        assertEquals("COMPLETED", response.status());
+        verify(repository).save(reservation);
+    }
+
+    @Test
+    void completeFromDisputedAfterResolutionTransitionsToCompleted() {
+        ReservationId id = ReservationId.generate();
+        Reservation reservation = Reservation.request(
+                id, Instant.now(),
+                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
+                HoursFee.of(new BigDecimal("25.00"), 1, 2),
+                TravelFee.ZERO,
+                CancellationTier.STANDARD
+        );
+        reservation.accept(Instant.now());
+        reservation.markDisputed();
         when(repository.findById(id)).thenReturn(Optional.of(reservation));
 
         CompleteReservationResponse response = usecase.complete(new CompleteReservationRequest(id.value()));
