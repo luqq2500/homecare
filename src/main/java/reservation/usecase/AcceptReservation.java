@@ -6,8 +6,9 @@ import reservation.usecase.dto.AcceptReservationRequest;
 import reservation.usecase.dto.AcceptReservationResponse;
 import reservation.usecase.exception.ReservationNotFoundException;
 import reservation.usecase.port.in.ReservationAcceptor;
-import reservation.usecase.port.out.ReservationIEPublisher;
 import reservation.usecase.port.out.ReservationRepository;
+import reservation.usecase.port.out.ReservationIEPublisher;
+import ie.ReservationAcceptedIE;
 
 import java.time.Instant;
 
@@ -26,11 +27,9 @@ public class AcceptReservation implements ReservationAcceptor {
         ReservationId id = ReservationId.of(request.reservationId());
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
-
         reservation.accept(Instant.now());
         repository.save(reservation);
-        publisher.publishAccepted(id);
-
+        publisher.publish(new ReservationAcceptedIE(id.value(), Instant.now()));
         return new AcceptReservationResponse(id.value(), reservation.status().name());
     }
 }

@@ -1,8 +1,7 @@
 package reservation.usecase.port.out;
 
-import reservation.domain.ReservationId;
+import ie.IntegrationEvent;
 
 public interface ReservationIEPublisher {
-    void publishRequested(ReservationId reservationId);
-    void publishAccepted(ReservationId reservationId);
+    void publish(IntegrationEvent event);
 }
