@@ -31,34 +31,34 @@ class ReservationTest {
     }
 
     @Test
-    void request_createsReservationInRequestedStatus() {
+    void shouldPlaceReservationInRequestedStatusWhenCreated() {
         Reservation reservation = newRequestedReservation();
         assertEquals(ReservationStatus.REQUESTED, reservation.status());
     }
 
     @Test
-    void accept_fromRequested_movesToReserved() {
+    void shouldTransitionToReservedWhenProviderAcceptsBeforeExpiry() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
         assertEquals(ReservationStatus.RESERVED, reservation.status());
     }
 
     @Test
-    void accept_whenExpired_throws() {
+    void shouldRejectAcceptWhenRequestHasAlreadyExpired() {
         Reservation reservation = newRequestedReservation();
         Instant afterExpiry = FUTURE_START.plusSeconds(1);
         assertThrows(InvalidStatusTransitionException.class, () -> reservation.accept(afterExpiry));
     }
 
     @Test
-    void decline_fromRequested_movesToDeclined() {
+    void shouldTransitionToDeclinedWhenProviderDeclinesRequest() {
         Reservation reservation = newRequestedReservation();
         reservation.decline();
         assertEquals(ReservationStatus.DECLINED, reservation.status());
     }
 
     @Test
-    void expire_whenPastExpiry_movesToExpired() {
+    void shouldTransitionToExpiredWhenExpiryTimeIsReached() {
         Reservation reservation = newRequestedReservation();
         Instant afterExpiry = FUTURE_START.plusSeconds(1);
         reservation.expire(afterExpiry);
@@ -66,20 +66,20 @@ class ReservationTest {
     }
 
     @Test
-    void expire_beforeExpiry_throws() {
+    void shouldRejectExpireWhenRequestHasNotYetExpired() {
         Reservation reservation = newRequestedReservation();
         assertThrows(InvalidStatusTransitionException.class, () -> reservation.expire(NOW.plusSeconds(60)));
     }
 
     @Test
-    void cancelByCustomer_fromRequested_movesToCancelled() {
+    void shouldTransitionToCancelledWhenCustomerCancelsFromRequested() {
         Reservation reservation = newRequestedReservation();
         reservation.cancelByCustomer(NOW.plusSeconds(60));
         assertEquals(ReservationStatus.CANCELLED, reservation.status());
     }
 
     @Test
-    void cancelByCustomer_fromReserved_movesToCancelled() {
+    void shouldTransitionToCancelledWhenCustomerCancelsFromReserved() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
         reservation.cancelByCustomer(NOW.plusSeconds(120));
@@ -87,7 +87,7 @@ class ReservationTest {
     }
 
     @Test
-    void cancelByProvider_fromReserved_movesToCancelled() {
+    void shouldTransitionToCancelledWhenProviderCancelsFromReserved() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
         reservation.cancelByProvider(NOW.plusSeconds(120));
@@ -95,7 +95,7 @@ class ReservationTest {
     }
 
     @Test
-    void markDisputed_fromReserved_movesToDisputed() {
+    void shouldTransitionToDisputedWhenDisputeIsRaisedFromReserved() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
         reservation.markDisputed();
@@ -103,7 +103,7 @@ class ReservationTest {
     }
 
     @Test
-    void complete_fromReserved_movesToCompleted() {
+    void shouldTransitionToCompletedWhenProviderCompletesFromReserved() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
         reservation.complete(NOW.plusSeconds(3600));
@@ -111,7 +111,7 @@ class ReservationTest {
     }
 
     @Test
-    void illegalTransitions_throwInvalidStatusTransition() {
+    void shouldRejectFurtherTransitionsAfterTerminalStatusIsReached() {
         Reservation reservation = newRequestedReservation();
         reservation.decline();
 
@@ -121,7 +121,7 @@ class ReservationTest {
     }
 
     @Test
-    void isExpired_respectsEarlierOf24hOrBookedStart() {
+    void shouldExpireAtTheEarlierOfTwentyFourHoursOrBookedStart() {
         Reservation reservation = newRequestedReservation();
         assertFalse(reservation.isExpired(NOW.plusSeconds(3600)));
         assertTrue(reservation.isExpired(FUTURE_START.plusSeconds(1)));
@@ -138,7 +138,8 @@ class ReservationTest {
             "FIRM,     false, 0.00",
             "FIRM,     true,  40.00"
     })
-    void customerCancellationFee_respectsTierAndFeeWindow(CancellationTier tier, boolean insideWindow, String expectedFee) {
+    void shouldChargeCustomerCancellationFeeOnlyInsideFeeWindowAccordingToTier(
+            CancellationTier tier, boolean insideWindow, String expectedFee) {
         Reservation reservation = newRequestedReservation(tier);
         Instant now = insideWindow
                 ? FUTURE_START.minusSeconds(12 * 3600)   // inside 24h window
@@ -149,7 +150,7 @@ class ReservationTest {
     }
 
     @Test
-    void customerCancellationFee_outsideCancellableStatus_throws() {
+    void shouldRejectCancellationFeeCalculationWhenStatusIsNoLongerCancellable() {
         Reservation reservation = newRequestedReservation();
         reservation.decline();
         assertThrows(InvalidStatusTransitionException.class,
@@ -157,7 +158,7 @@ class ReservationTest {
     }
 
     @Test
-    void providerCancellationFine_insideWindow_is20Percent() {
+    void shouldApplyTwentyPercentProviderFineForLateCancellationInsideFeeWindow() {
         Reservation reservation = newRequestedReservation();
         Instant inside = FUTURE_START.minusSeconds(12 * 3600);
         BigDecimal fine = reservation.providerCancellationFine(inside);
@@ -165,7 +166,7 @@ class ReservationTest {
     }
 
     @Test
-    void providerCancellationFine_outsideWindow_isZero() {
+    void shouldApplyZeroProviderFineWhenCancellationIsOutsideFeeWindow() {
         Reservation reservation = newRequestedReservation();
         Instant outside = FUTURE_START.minusSeconds(36 * 3600);
         BigDecimal fine = reservation.providerCancellationFine(outside);
@@ -173,15 +174,14 @@ class ReservationTest {
     }
 
     @Test
-    void providerNoShowFine_is30PercentCeiling() {
+    void shouldApplyThirtyPercentCeilingAsProviderNoShowFine() {
         Reservation reservation = newRequestedReservation();
         BigDecimal fine = reservation.providerNoShowFine();
         assertEquals(0, new BigDecimal("60.00").compareTo(fine)); // 30% of 200
     }
 
     @Test
-    void providerNoShowFine_neverExceeds30Percent() {
-        // Explicit ceiling check
+    void shouldNeverExceedThirtyPercentOfHoursFeeForProviderNoShowFine() {
         Reservation reservation = newRequestedReservation();
         BigDecimal fine = reservation.providerNoShowFine();
         BigDecimal ceiling = reservation.hoursFee().amount().multiply(new BigDecimal("0.30"));
@@ -191,13 +191,13 @@ class ReservationTest {
     // --- Expiry edge cases ---
 
     @Test
-    void isExpired_exactlyAtBookedStart_isExpired() {
+    void shouldTreatReservationAsExpiredExactlyAtBookedStart() {
         Reservation reservation = newRequestedReservation();
         assertTrue(reservation.isExpired(FUTURE_START));
     }
 
     @Test
-    void isExpired_exactlyAt24hAfterRequest_whenEarlierThanStart_isExpired() {
+    void shouldExpireAtBookedStartWhenItIsEarlierThanTwentyFourHoursAfterRequest() {
         Instant earlyStart = NOW.plusSeconds(12 * 3600); // start in 12h
         Reservation reservation = Reservation.request(
                 ReservationId.generate(),
