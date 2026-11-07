@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BookedWindowTest {
 
     @Test
-    void shouldCreateValidWindowWhenStartIsOnFifteenMinuteBoundaryAndDurationIsWithinRange() {
+    void whenStartIsOnFifteenMinuteBoundaryAndDurationIsWithinRangeShouldCreateValidWindow() {
         Instant start = Instant.parse("2026-11-08T14:00:00Z");
         BookedWindow window = BookedWindow.of(start, 2);
         assertEquals(start, window.start());
@@ -20,25 +20,25 @@ class BookedWindowTest {
     }
 
     @Test
-    void shouldRejectWindowWhenDurationIsLessThanOneHour() {
+    void whenDurationIsLessThanOneHourShouldRejectWindow() {
         Instant start = Instant.parse("2026-11-08T14:00:00Z");
         assertThrows(InvalidDurationException.class, () -> BookedWindow.of(start, 0));
     }
 
     @Test
-    void shouldRejectWindowWhenDurationExceedsFourHours() {
+    void whenDurationExceedsFourHoursShouldRejectWindow() {
         Instant start = Instant.parse("2026-11-08T14:00:00Z");
         assertThrows(InvalidDurationException.class, () -> BookedWindow.of(start, 5));
     }
 
     @Test
-    void shouldRejectWindowWhenStartTimeIsNotOnFifteenMinuteBoundary() {
+    void whenStartTimeIsNotOnFifteenMinuteBoundaryShouldRejectWindow() {
         Instant start = Instant.parse("2026-11-08T14:07:00Z");
         assertThrows(StartTimeNotOn15MinBoundaryException.class, () -> BookedWindow.of(start, 2));
     }
 
     @Test
-    void shouldRejectWindowWhenStartTimeContainsSeconds() {
+    void whenStartTimeContainsSecondsShouldRejectWindow() {
         Instant start = Instant.parse("2026-11-08T14:00:30Z");
         assertThrows(StartTimeNotOn15MinBoundaryException.class, () -> BookedWindow.of(start, 2));
     }
