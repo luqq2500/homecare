@@ -12,6 +12,12 @@ public final class HoursFee {
     }
 
     public static HoursFee of(BigDecimal hourlyRate, int numberOfHelpers, int bookedHours) {
+        if (numberOfHelpers < 1 || numberOfHelpers > 10) {
+            throw new IllegalArgumentException("Number of helpers must be between 1 and 10");
+        }
+        if (bookedHours < 1 || bookedHours > 4) {
+            throw new IllegalArgumentException("Booked hours must be between 1 and 4");
+        }
         BigDecimal total = hourlyRate
                 .multiply(BigDecimal.valueOf(numberOfHelpers))
                 .multiply(BigDecimal.valueOf(bookedHours));
