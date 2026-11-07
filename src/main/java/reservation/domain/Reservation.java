@@ -7,10 +7,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
 
-/**
- * Aggregate root for a Homa reservation.
- * Enforces the status lifecycle and business invariants from the product description.
- */
 public class Reservation {
 
     private final ReservationId id;
@@ -23,6 +19,8 @@ public class Reservation {
     private Instant acceptedAt;
     private Instant completedAt;
     private CheckIn checkIn;
+    private Dispute dispute;
+    private CompletionEvidence completionEvidence;
 
     private Reservation(ReservationId id,
                         Instant requestedAt,
@@ -78,11 +76,10 @@ public class Reservation {
 
     public BigDecimal providerCancellationFine(Instant now) {
         Instant feeWindowStart = bookedWindow.start().minusSeconds(24 * 3600);
-        BigDecimal base = hoursFee.amount();
         if (now.isBefore(feeWindowStart)) {
             return BigDecimal.ZERO;
         }
-        return base.multiply(new BigDecimal("0.20")).setScale(2, RoundingMode.HALF_UP);
+        return hoursFee.amount().multiply(new BigDecimal("0.20")).setScale(2, RoundingMode.HALF_UP);
     }
 
     public BigDecimal providerNoShowFine() {
@@ -104,17 +101,41 @@ public class Reservation {
     }
 
     public void markDisputed() {
+        fileDispute(DisputeType.PROBLEM_WITH_FINISHED_WORK, "unspecified", Instant.now());
+    }
+
+    public void fileDispute(DisputeType type, String reason, Instant now) {
         if (status != ReservationStatus.RESERVED) {
             throw new InvalidStatusTransitionException("Dispute only allowed while RESERVED");
         }
+        if (this.dispute != null) {
+            throw new InvalidStatusTransitionException("Only one dispute allowed per reservation");
+        }
+        this.dispute = Dispute.file(type, reason, now);
         this.status = ReservationStatus.DISPUTED;
     }
 
-    public void markJobCompletedWithEvidence(Instant now) {
+    public void resolveDispute(DisputeResolution resolution, Instant now) {
+        if (status != ReservationStatus.DISPUTED || this.dispute == null) {
+            throw new InvalidStatusTransitionException("No open dispute to resolve");
+        }
+        this.dispute.resolve(resolution);
+        this.status = ReservationStatus.COMPLETED;
+        if (this.completedAt == null) {
+            this.completedAt = now;
+        }
+    }
+
+    public void markJobCompletedWithEvidence(String evidenceReference, Instant now) {
         if (status != ReservationStatus.RESERVED) {
             throw new InvalidStatusTransitionException("Can only mark job completed while RESERVED");
         }
+        this.completionEvidence = CompletionEvidence.of(evidenceReference, now);
         this.completedAt = now;
+    }
+
+    public void markJobCompletedWithEvidence(Instant now) {
+        markJobCompletedWithEvidence("evidence-pending", now);
     }
 
     public void moveToCompletedAfterDisputeWindowOrResolution(Instant now) {
@@ -180,4 +201,6 @@ public class Reservation {
     public TravelFee travelFee() { return travelFee; }
     public CancellationTier cancellationTier() { return cancellationTier; }
     public BookedWindow bookedWindow() { return bookedWindow; }
+    public Dispute dispute() { return dispute; }
+    public CompletionEvidence completionEvidence() { return completionEvidence; }
 }
