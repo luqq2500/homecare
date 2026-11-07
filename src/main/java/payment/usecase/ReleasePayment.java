@@ -6,22 +6,23 @@ import payment.usecase.dto.ReleasePaymentRequest;
 import payment.usecase.dto.ReleasePaymentResponse;
 import payment.usecase.exception.PaymentNotFoundException;
 import payment.usecase.port.in.PaymentReleaser;
+import payment.usecase.port.out.PaymentRepository;
 import payment.usecase.port.out.PaymentGateway;
 import payment.usecase.port.out.PaymentIEPublisher;
-import payment.usecase.port.out.PaymentRepository;
+import ie.PaymentReleasedIE;
 
 import java.time.Instant;
 
 public class ReleasePayment implements PaymentReleaser {
 
     private final PaymentRepository repository;
-    private final PaymentIEPublisher publisher;
     private final PaymentGateway gateway;
+    private final PaymentIEPublisher publisher;
 
-    public ReleasePayment(PaymentRepository repository, PaymentIEPublisher publisher, PaymentGateway gateway) {
+    public ReleasePayment(PaymentRepository repository, PaymentGateway gateway, PaymentIEPublisher publisher) {
         this.repository = repository;
-        this.publisher = publisher;
         this.gateway = gateway;
+        this.publisher = publisher;
     }
 
     @Override
@@ -29,10 +30,10 @@ public class ReleasePayment implements PaymentReleaser {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
+        payment.release();
         gateway.release(id.value());
-        payment.release(Instant.now());
         repository.save(payment);
-        publisher.publishReleased(id);
+        publisher.publish(new PaymentReleasedIE(id.value(), Instant.now()));
         return new ReleasePaymentResponse(id.value(), payment.status().name());
     }
 }

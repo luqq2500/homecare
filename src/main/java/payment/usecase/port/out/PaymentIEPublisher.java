@@ -1,10 +1,7 @@
 package payment.usecase.port.out;
 
-import payment.domain.PaymentId;
+import ie.IntegrationEvent;
 
 public interface PaymentIEPublisher {
-    void publishAuthorised(PaymentId paymentId);
-    void publishHeld(PaymentId paymentId);
-    void publishReleased(PaymentId paymentId);
-    void publishRefunded(PaymentId paymentId);
+    void publish(IntegrationEvent event);
 }

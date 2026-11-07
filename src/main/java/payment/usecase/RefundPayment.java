@@ -6,22 +6,24 @@ import payment.usecase.dto.RefundPaymentRequest;
 import payment.usecase.dto.RefundPaymentResponse;
 import payment.usecase.exception.PaymentNotFoundException;
 import payment.usecase.port.in.PaymentRefunder;
+import payment.usecase.port.out.PaymentRepository;
 import payment.usecase.port.out.PaymentGateway;
 import payment.usecase.port.out.PaymentIEPublisher;
-import payment.usecase.port.out.PaymentRepository;
+import ie.PaymentRefundedIE;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class RefundPayment implements PaymentRefunder {
 
     private final PaymentRepository repository;
-    private final PaymentIEPublisher publisher;
     private final PaymentGateway gateway;
+    private final PaymentIEPublisher publisher;
 
-    public RefundPayment(PaymentRepository repository, PaymentIEPublisher publisher, PaymentGateway gateway) {
+    public RefundPayment(PaymentRepository repository, PaymentGateway gateway, PaymentIEPublisher publisher) {
         this.repository = repository;
-        this.publisher = publisher;
         this.gateway = gateway;
+        this.publisher = publisher;
     }
 
     @Override
@@ -29,10 +31,11 @@ public class RefundPayment implements PaymentRefunder {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
-        gateway.refund(id.value(), request.amount());
-        payment.refund(request.amount(), Instant.now());
+        BigDecimal amount = request.amount() == null ? payment.amount() : request.amount();
+        payment.refund(amount);
+        gateway.refund(id.value(), amount);
         repository.save(payment);
-        publisher.publishRefunded(id);
-        return new RefundPaymentResponse(id.value(), payment.status().name(), payment.refundedAmount().toPlainString());
+        publisher.publish(new PaymentRefundedIE(id.value(), Instant.now()));
+        return new RefundPaymentResponse(id.value(), payment.status().name());
     }
 }

@@ -6,22 +6,23 @@ import payment.usecase.dto.HoldPaymentRequest;
 import payment.usecase.dto.HoldPaymentResponse;
 import payment.usecase.exception.PaymentNotFoundException;
 import payment.usecase.port.in.PaymentHolder;
+import payment.usecase.port.out.PaymentRepository;
 import payment.usecase.port.out.PaymentGateway;
 import payment.usecase.port.out.PaymentIEPublisher;
-import payment.usecase.port.out.PaymentRepository;
+import ie.PaymentHeldIE;
 
 import java.time.Instant;
 
 public class HoldPayment implements PaymentHolder {
 
     private final PaymentRepository repository;
-    private final PaymentIEPublisher publisher;
     private final PaymentGateway gateway;
+    private final PaymentIEPublisher publisher;
 
-    public HoldPayment(PaymentRepository repository, PaymentIEPublisher publisher, PaymentGateway gateway) {
+    public HoldPayment(PaymentRepository repository, PaymentGateway gateway, PaymentIEPublisher publisher) {
         this.repository = repository;
-        this.publisher = publisher;
         this.gateway = gateway;
+        this.publisher = publisher;
     }
 
     @Override
@@ -29,10 +30,10 @@ public class HoldPayment implements PaymentHolder {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
-        gateway.capture(id.value());
-        payment.hold(Instant.now());
+        payment.hold();
+        gateway.capture(id.value(), payment.amount());
         repository.save(payment);
-        publisher.publishHeld(id);
+        publisher.publish(new PaymentHeldIE(id.value(), Instant.now()));
         return new HoldPaymentResponse(id.value(), payment.status().name());
     }
 }
