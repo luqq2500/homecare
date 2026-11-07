@@ -8,6 +8,7 @@ import reservation.usecase.port.out.ReservationRepository;
 import reservation.usecase.port.out.ReservationIEPublisher;
 import ie.ReservationRequestedIE;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class RequestReservation implements ReservationRequester {
@@ -23,16 +24,22 @@ public class RequestReservation implements ReservationRequester {
     @Override
     public RequestReservationResponse request(RequestReservationRequest request) {
         ReservationId id = ReservationId.generate();
-        Reservation reservation = Reservation.request(
-                id,
-                Instant.now(),
-                BookedWindow.of(request.start(), request.durationHours()),
-                HoursFee.of(request.hourlyRate(), request.helpers(), request.durationHours()),
-                TravelFee.of(request.travelFee()),
-                CancellationTier.valueOf(request.cancellationTier())
+        PricingSnapshot snapshot = PricingSnapshot.of(
+                request.hourlyRate(), request.numberOfHelpers(), request.bookedHours(),
+                false, request.travelFeeAmount(), CancellationTier.valueOf(request.cancellationTier())
+        );
+        Reservation reservation = Reservation.requestWithIdentity(
+                id, Instant.now(),
+                BookedWindow.of(request.bookedStart(), request.bookedHours()),
+                HoursFee.of(request.hourlyRate(), request.numberOfHelpers(), request.bookedHours()),
+                TravelFee.of(request.travelFeeAmount()),
+                CancellationTier.valueOf(request.cancellationTier()),
+                request.customerId(), request.providerId(),
+                request.jobs(), snapshot
         );
         repository.save(reservation);
-        publisher.publish(new ReservationRequestedIE(id.value(), Instant.now()));
+        BigDecimal total = reservation.hoursFee().amount().add(reservation.travelFee().amount());
+        publisher.publish(new ReservationRequestedIE(id.value(), request.customerId(), request.providerId(), total, Instant.now()));
         return new RequestReservationResponse(id.value(), reservation.status().name());
     }
 }
