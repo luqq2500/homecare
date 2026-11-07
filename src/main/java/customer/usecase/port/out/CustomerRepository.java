@@ -1,0 +1,11 @@
+package customer.usecase.port.out;
+
+import customer.domain.Customer;
+import customer.domain.CustomerId;
+
+import java.util.Optional;
+
+public interface CustomerRepository {
+    void save(Customer customer);
+    Optional<Customer> findById(CustomerId id);
+}
