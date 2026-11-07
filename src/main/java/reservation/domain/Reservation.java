@@ -22,6 +22,7 @@ public class Reservation {
     private ReservationStatus status;
     private Instant acceptedAt;
     private Instant completedAt;
+    private CheckIn checkIn;
 
     private Reservation(ReservationId id,
                         Instant requestedAt,
@@ -109,10 +110,6 @@ public class Reservation {
         this.status = ReservationStatus.DISPUTED;
     }
 
-    /**
-     * Provider marks the job completed with evidence.
-     * Action only — does NOT change status. Status stays RESERVED.
-     */
     public void markJobCompletedWithEvidence(Instant now) {
         if (status != ReservationStatus.RESERVED) {
             throw new InvalidStatusTransitionException("Can only mark job completed while RESERVED");
@@ -120,10 +117,6 @@ public class Reservation {
         this.completedAt = now;
     }
 
-    /**
-     * Transition to COMPLETED only when dispute window ends cleanly
-     * or Homa resolves a report.
-     */
     public void moveToCompletedAfterDisputeWindowOrResolution(Instant now) {
         if (status != ReservationStatus.RESERVED && status != ReservationStatus.DISPUTED) {
             throw new InvalidStatusTransitionException("Can only complete from RESERVED or DISPUTED");
@@ -158,6 +151,21 @@ public class Reservation {
 
     public BigDecimal customerCancellationFee(Instant now) {
         return customerCancellationFee(now, false);
+    }
+
+    public void recordCheckIn(Instant now, GeoLocation providerLocation, GeoLocation customerLocation) {
+        if (status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Check-in only allowed while RESERVED");
+        }
+        this.checkIn = CheckIn.record(now, bookedWindow.start(), providerLocation, customerLocation);
+    }
+
+    public boolean hasCheckedIn() {
+        return checkIn != null;
+    }
+
+    public CheckIn checkIn() {
+        return checkIn;
     }
 
     public boolean isExpired(Instant now) {
