@@ -24,7 +24,8 @@ public class CompleteReservation implements ReservationCompleter {
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
 
-        reservation.complete(Instant.now());
+        // Only path to COMPLETED: dispute window closed cleanly or Homa resolved the report
+        reservation.moveToCompletedAfterDisputeWindowOrResolution(Instant.now());
         repository.save(reservation);
 
         return new CompleteReservationResponse(id.value(), reservation.status().name());
