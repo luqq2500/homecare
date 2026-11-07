@@ -1,6 +1,7 @@
 package discovery.usecase;
 
 import discovery.domain.MatchResult;
+import discovery.domain.ProviderCandidate;
 import discovery.domain.SearchCriteria;
 import discovery.usecase.dto.SearchRequest;
 import discovery.usecase.dto.SearchResponse;
@@ -25,9 +26,17 @@ public class ExecuteSearch implements SearchExecutor {
 
         List<MatchResult> matches = new ArrayList<>();
         for (String providerId : query.findCandidates(criteria)) {
-            if (query.isExactMatch(providerId, criteria)) {
+            ProviderCandidate candidate = ProviderCandidate.of(
+                    providerId,
+                    query.isLive(providerId),
+                    query.isExactMatch(providerId, criteria) || query.isCloseMatch(providerId, criteria),
+                    true,
+                    query.isExactMatch(providerId, criteria)
+            );
+            if (!candidate.isLive()) continue;
+            if (candidate.isExactMatch()) {
                 matches.add(MatchResult.exact(providerId));
-            } else if (query.isCloseMatch(providerId, criteria)) {
+            } else if (candidate.isCloseMatch()) {
                 matches.add(MatchResult.close(providerId, query.closeMatchReason(providerId, criteria)));
             }
         }
