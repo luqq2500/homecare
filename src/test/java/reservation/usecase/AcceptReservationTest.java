@@ -1,5 +1,6 @@
 package reservation.usecase;
 
+import ie.ReservationAcceptedIE;
 import org.junit.jupiter.api.Test;
 import reservation.domain.*;
 import reservation.usecase.dto.AcceptReservationRequest;
@@ -24,10 +25,13 @@ class AcceptReservationTest {
     @Test
     void acceptExistingRequestedReservationTransitionsToReservedAndPublishesEvent() {
         ReservationId id = ReservationId.generate();
+        Instant now = Instant.now();
+        Instant start = now.plusSeconds(4 * 3600);
+        start = start.minusSeconds(start.getEpochSecond() % (15 * 60));
         Reservation reservation = Reservation.request(
                 id,
-                Instant.now(),
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
+                now.minusSeconds(3600),
+                BookedWindow.of(start, 2),
                 HoursFee.of(new BigDecimal("25.00"), 1, 2),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
@@ -39,7 +43,7 @@ class AcceptReservationTest {
         assertEquals(id.value(), response.reservationId());
         assertEquals("RESERVED", response.status());
         verify(repository).save(reservation);
-        verify(publisher).publishAccepted(id);
+        verify(publisher).publish(argThat(event -> event instanceof ReservationAcceptedIE));
     }
 
     @Test
@@ -49,6 +53,6 @@ class AcceptReservationTest {
 
         assertThrows(ReservationNotFoundException.class,
                 () -> usecase.accept(new AcceptReservationRequest(id.value())));
-        verify(publisher, never()).publishAccepted(any());
+        verify(publisher, never()).publish(any());
     }
 }
