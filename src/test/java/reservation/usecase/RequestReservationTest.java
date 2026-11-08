@@ -1,5 +1,6 @@
 package reservation.usecase;
 
+import ie.ReservationRequestedIE;
 import org.junit.jupiter.api.Test;
 import reservation.domain.*;
 import reservation.usecase.dto.RequestReservationRequest;
@@ -9,6 +10,7 @@ import reservation.usecase.port.out.ReservationRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,13 +24,18 @@ class RequestReservationTest {
 
     @Test
     void requestCreatesReservationSavesItAndPublishesRequestedEvent() {
+        Instant start = Instant.now().plusSeconds(4 * 3600);
+        start = start.minusSeconds(start.getEpochSecond() % (15 * 60));
         RequestReservationRequest request = new RequestReservationRequest(
-                Instant.parse("2026-11-08T14:00:00Z"),
+                start,
                 2,
                 new BigDecimal("25.00"),
                 1,
-                null,
-                "STANDARD"
+                BigDecimal.ZERO,
+                "STANDARD",
+                "cust-1",
+                "prov-1",
+                List.of("Kitchen")
         );
 
         RequestReservationResponse response = usecase.request(request);
@@ -36,6 +43,6 @@ class RequestReservationTest {
         assertNotNull(response.reservationId());
         assertEquals("REQUESTED", response.status());
         verify(repository).save(any(Reservation.class));
-        verify(publisher).publishRequested(any(ReservationId.class));
+        verify(publisher).publish(argThat(event -> event instanceof ReservationRequestedIE));
     }
 }
