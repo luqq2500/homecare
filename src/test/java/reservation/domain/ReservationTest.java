@@ -106,7 +106,9 @@ class ReservationTest {
     void completeFromReservedTransitionsToCompleted() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
-        reservation.complete(NOW.plusSeconds(3600));
+        reservation.markJobCompletedWithEvidence("evidence", NOW.plusSeconds(3600));
+        Instant afterWindow = reservation.disputeWindowEnd().plusSeconds(1);
+        reservation.moveToCompletedAfterDisputeWindowOrResolution(afterWindow);
         assertEquals(ReservationStatus.COMPLETED, reservation.status());
     }
 
@@ -116,7 +118,7 @@ class ReservationTest {
         reservation.decline();
 
         assertThrows(InvalidStatusTransitionException.class, () -> reservation.accept(NOW));
-        assertThrows(InvalidStatusTransitionException.class, () -> reservation.complete(NOW));
+        assertThrows(InvalidStatusTransitionException.class, () -> reservation.markJobCompletedWithEvidence("ev", NOW));
         assertThrows(InvalidStatusTransitionException.class, reservation::markDisputed);
     }
 
