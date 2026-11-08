@@ -106,7 +106,7 @@ class ReservationTest {
     void completeFromReservedTransitionsToCompleted() {
         Reservation reservation = newRequestedReservation();
         reservation.accept(NOW.plusSeconds(60));
-        reservation.markJobCompletedWithEvidence("evidence", NOW.plusSeconds(3600));
+        reservation.markJobCompletedWithEvidence("evidence", FUTURE_START.plusSeconds(3600));
         Instant afterWindow = reservation.disputeWindowEnd().plusSeconds(1);
         reservation.moveToCompletedAfterDisputeWindowOrResolution(afterWindow);
         assertEquals(ReservationStatus.COMPLETED, reservation.status());
