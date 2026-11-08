@@ -30,10 +30,11 @@ public class ReleasePayment implements PaymentReleaser {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
-        payment.release();
+        Instant now = Instant.now();
+        payment.release(now);
         gateway.release(id.value());
         repository.save(payment);
-        publisher.publish(new PaymentReleasedIE(id.value(), Instant.now()));
+        publisher.publish(new PaymentReleasedIE(id.value(), now));
         return new ReleasePaymentResponse(id.value(), payment.status().name());
     }
 }
