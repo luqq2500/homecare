@@ -37,6 +37,6 @@ public class RefundPayment implements PaymentRefunder {
         gateway.refund(id.value(), amount);
         repository.save(payment);
         publisher.publish(new PaymentRefundedIE(id.value(), now));
-        return new RefundPaymentResponse(id.value(), payment.status().name());
+        return new RefundPaymentResponse(id.value(), payment.status().name(), payment.refundedAmount().toPlainString());
     }
 }
