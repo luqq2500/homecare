@@ -5,6 +5,7 @@ import reservation.domain.*;
 import reservation.usecase.dto.ExpireReservationRequest;
 import reservation.usecase.dto.ExpireReservationResponse;
 import reservation.usecase.exception.ReservationNotFoundException;
+import reservation.usecase.port.out.ReservationIEPublisher;
 import reservation.usecase.port.out.ReservationRepository;
 
 import java.math.BigDecimal;
@@ -17,15 +18,18 @@ import static org.mockito.Mockito.*;
 class ExpireReservationTest {
 
     private final ReservationRepository repository = mock(ReservationRepository.class);
-    private final ExpireReservation usecase = new ExpireReservation(repository);
+    private final ReservationIEPublisher publisher = mock(ReservationIEPublisher.class);
+    private final ExpireReservation usecase = new ExpireReservation(repository, publisher);
 
     @Test
     void expireAfterDeadlineTransitionsToExpired() {
         ReservationId id = ReservationId.generate();
         Instant requestedAt = Instant.now().minusSeconds(25 * 3600);
+        Instant start = Instant.now().plusSeconds(4 * 3600);
+        start = start.minusSeconds(start.getEpochSecond() % (15 * 60));
         Reservation reservation = Reservation.request(
                 id, requestedAt,
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
+                BookedWindow.of(start, 2),
                 HoursFee.of(new BigDecimal("25.00"), 1, 2),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
@@ -36,6 +40,7 @@ class ExpireReservationTest {
 
         assertEquals("EXPIRED", response.status());
         verify(repository).save(reservation);
+        verify(publisher).publish(any());
     }
 
     @Test
