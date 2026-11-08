@@ -1,5 +1,6 @@
 package payment.usecase;
 
+import ie.PaymentReleasedIE;
 import org.junit.jupiter.api.Test;
 import payment.domain.Payment;
 import payment.domain.PaymentId;
@@ -20,9 +21,9 @@ import static org.mockito.Mockito.*;
 class ReleasePaymentTest {
 
     private final PaymentRepository repository = mock(PaymentRepository.class);
-    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
     private final PaymentGateway gateway = mock(PaymentGateway.class);
-    private final ReleasePayment usecase = new ReleasePayment(repository, publisher, gateway);
+    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
+    private final ReleasePayment usecase = new ReleasePayment(repository, gateway, publisher);
 
     @Test
     void releaseExistingHeldPaymentTransitionsToReleasedAndPublishes() {
@@ -37,7 +38,7 @@ class ReleasePaymentTest {
         assertEquals("RELEASED", response.status());
         verify(gateway).release(id.value());
         verify(repository).save(payment);
-        verify(publisher).publishReleased(id);
+        verify(publisher).publish(argThat(event -> event instanceof PaymentReleasedIE));
     }
 
     @Test
