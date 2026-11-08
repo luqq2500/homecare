@@ -9,7 +9,7 @@ import java.util.Objects;
 /**
  * Aggregate root for a Homa payment.
  * Orthogonal state machine: Authorised → Held → Released / Refunded / Voided.
- * Settlement records the three-way allocation (provider / customer / Homa).
+ * Settlement records the provider/customer allocation; sum must equal authorised amount.
  */
 public class Payment {
 
@@ -84,25 +84,21 @@ public class Payment {
     }
 
     /**
-     * Settle the three-way allocation. Records provider payout and Homa retention,
-     * refunds the customer share, and releases the remainder to the provider.
+     * Settle from HELD. toProvider + toCustomer must equal the authorised amount.
+     * Records the provider payout, refunds the customer share, then releases.
      */
     public void settle(BigDecimal toProvider, BigDecimal toCustomer, Instant now) {
-        if (status != PaymentStatus.HELD && status != PaymentStatus.AUTHORISED) {
-            throw new IllegalPaymentTransitionException("Can only settle from HELD or AUTHORISED");
+        if (status != PaymentStatus.HELD) {
+            throw new IllegalPaymentTransitionException("Can only settle from HELD");
         }
         if (toProvider.compareTo(BigDecimal.ZERO) < 0 || toCustomer.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalPaymentTransitionException("Allocations must be non-negative");
         }
-        BigDecimal allocated = toProvider.add(toCustomer);
-        if (allocated.compareTo(authorisedAmount) > 0) {
-            throw new IllegalPaymentTransitionException("Allocation exceeds authorised amount");
+        if (toProvider.add(toCustomer).compareTo(authorisedAmount) != 0) {
+            throw new IllegalPaymentTransitionException("Allocations must equal authorised amount");
         }
         this.providerPayout = toProvider;
-        this.homaRetention = authorisedAmount.subtract(allocated);
-        if (status == PaymentStatus.AUTHORISED) {
-            hold(now);
-        }
+        this.homaRetention = BigDecimal.ZERO;
         if (toCustomer.compareTo(BigDecimal.ZERO) > 0) {
             refund(toCustomer, now);
         }
