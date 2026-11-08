@@ -1,5 +1,6 @@
 package payment.usecase;
 
+import ie.PaymentHeldIE;
 import org.junit.jupiter.api.Test;
 import payment.domain.Payment;
 import payment.domain.PaymentId;
@@ -19,9 +20,9 @@ import static org.mockito.Mockito.*;
 class HoldPaymentTest {
 
     private final PaymentRepository repository = mock(PaymentRepository.class);
-    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
     private final PaymentGateway gateway = mock(PaymentGateway.class);
-    private final HoldPayment usecase = new HoldPayment(repository, publisher, gateway);
+    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
+    private final HoldPayment usecase = new HoldPayment(repository, gateway, publisher);
 
     @Test
     void holdExistingAuthorisedPaymentCapturesTransitionsToHeldAndPublishes() {
@@ -35,7 +36,7 @@ class HoldPaymentTest {
         assertEquals("HELD", response.status());
         verify(gateway).capture(id.value());
         verify(repository).save(payment);
-        verify(publisher).publishHeld(id);
+        verify(publisher).publish(argThat(event -> event instanceof PaymentHeldIE));
     }
 
     @Test
@@ -46,6 +47,6 @@ class HoldPaymentTest {
         assertThrows(PaymentNotFoundException.class,
                 () -> usecase.hold(new HoldPaymentRequest(id.value())));
         verify(gateway, never()).capture(any());
-        verify(publisher, never()).publishHeld(any());
+        verify(publisher, never()).publish(any());
     }
 }
