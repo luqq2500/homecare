@@ -9,6 +9,7 @@ import java.util.Objects;
 /**
  * Aggregate root for a Homa payment.
  * Orthogonal state machine: Authorised → Held → Released / Refunded / Voided.
+ * Settlement records the three-way allocation (provider / customer / Homa).
  */
 public class Payment {
 
@@ -20,6 +21,8 @@ public class Payment {
     private Instant releasedAt;
     private Instant refundedAt;
     private BigDecimal refundedAmount;
+    private BigDecimal providerPayout;
+    private BigDecimal homaRetention;
 
     private Payment(PaymentId id, String reservationId, BigDecimal authorisedAmount) {
         this.id = Objects.requireNonNull(id);
@@ -27,6 +30,8 @@ public class Payment {
         this.authorisedAmount = Objects.requireNonNull(authorisedAmount);
         this.status = PaymentStatus.AUTHORISED;
         this.refundedAmount = BigDecimal.ZERO;
+        this.providerPayout = BigDecimal.ZERO;
+        this.homaRetention = BigDecimal.ZERO;
     }
 
     public static Payment authorise(PaymentId id, String reservationId, BigDecimal amount) {
@@ -78,19 +83,36 @@ public class Payment {
         this.refundedAt = now;
     }
 
+    /**
+     * Settle the three-way allocation. Records provider payout and Homa retention,
+     * refunds the customer share, and releases the remainder to the provider.
+     */
     public void settle(BigDecimal toProvider, BigDecimal toCustomer, Instant now) {
         if (status != PaymentStatus.HELD && status != PaymentStatus.AUTHORISED) {
             throw new IllegalPaymentTransitionException("Can only settle from HELD or AUTHORISED");
         }
+        if (toProvider.compareTo(BigDecimal.ZERO) < 0 || toCustomer.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalPaymentTransitionException("Allocations must be non-negative");
+        }
+        BigDecimal allocated = toProvider.add(toCustomer);
+        if (allocated.compareTo(authorisedAmount) > 0) {
+            throw new IllegalPaymentTransitionException("Allocation exceeds authorised amount");
+        }
+        this.providerPayout = toProvider;
+        this.homaRetention = authorisedAmount.subtract(allocated);
+        if (status == PaymentStatus.AUTHORISED) {
+            hold(now);
+        }
         if (toCustomer.compareTo(BigDecimal.ZERO) > 0) {
-            if (status == PaymentStatus.AUTHORISED) {
-                this.status = PaymentStatus.HELD;
-                this.heldAt = now;
-            }
             refund(toCustomer, now);
-        } else if (status == PaymentStatus.HELD) {
+        }
+        if (status == PaymentStatus.HELD) {
             release(now);
         }
+    }
+
+    public BigDecimal releasableAmount() {
+        return authorisedAmount.subtract(refundedAmount);
     }
 
     public PaymentId id() { return id; }
@@ -98,4 +120,6 @@ public class Payment {
     public BigDecimal authorisedAmount() { return authorisedAmount; }
     public PaymentStatus status() { return status; }
     public BigDecimal refundedAmount() { return refundedAmount; }
+    public BigDecimal providerPayout() { return providerPayout; }
+    public BigDecimal homaRetention() { return homaRetention; }
 }
