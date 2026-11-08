@@ -1,6 +1,8 @@
 package reservation.domain;
 
 import org.junit.jupiter.api.Test;
+import payment.domain.Settlement;
+import payment.domain.SettlementCalculator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,7 +28,9 @@ class SettlementExactValueIntentTest {
     @Test
     void standardCancelConservesTotal() {
         Reservation r = reservedWithTier(CancellationTier.STANDARD);
-        Settlement s = r.settleCustomerCancel(START.minusSeconds(5 * 3600));
+        Settlement s = SettlementCalculator.customerCancel(
+                r.hoursFee().amount(), r.travelFee().amount(),
+                r.cancellationTier().feePercent(), false);
         BigDecimal paid = r.hoursFee().amount().add(r.travelFee().amount());
         assertEquals(0, s.total().compareTo(paid));
         assertTrue(s.toProvider().signum() > 0);
@@ -38,15 +42,21 @@ class SettlementExactValueIntentTest {
     void firmCancelHasHigherProviderShareThanStandard() {
         Reservation standard = reservedWithTier(CancellationTier.STANDARD);
         Reservation firm = reservedWithTier(CancellationTier.FIRM);
-        Settlement sStandard = standard.settleCustomerCancel(START.minusSeconds(5 * 3600));
-        Settlement sFirm = firm.settleCustomerCancel(START.minusSeconds(5 * 3600));
+        Settlement sStandard = SettlementCalculator.customerCancel(
+                standard.hoursFee().amount(), standard.travelFee().amount(),
+                standard.cancellationTier().feePercent(), false);
+        Settlement sFirm = SettlementCalculator.customerCancel(
+                firm.hoursFee().amount(), firm.travelFee().amount(),
+                firm.cancellationTier().feePercent(), false);
         assertTrue(sFirm.toProvider().compareTo(sStandard.toProvider()) >= 0);
     }
 
     @Test
     void flexibleCancelHasZeroProviderShare() {
         Reservation r = reservedWithTier(CancellationTier.FLEXIBLE);
-        Settlement s = r.settleCustomerCancel(START.minusSeconds(5 * 3600));
+        Settlement s = SettlementCalculator.customerCancel(
+                r.hoursFee().amount(), r.travelFee().amount(),
+                r.cancellationTier().feePercent(), false);
         assertTrue(s.toProvider().signum() >= 0);
         BigDecimal paid = r.hoursFee().amount().add(r.travelFee().amount());
         assertEquals(0, s.toCustomer().compareTo(paid));
@@ -55,7 +65,7 @@ class SettlementExactValueIntentTest {
     @Test
     void providerNoShowConservesTotalAndFinesHoma() {
         Reservation r = reservedWithTier(CancellationTier.STANDARD);
-        Settlement s = r.settleProviderNoShow();
+        Settlement s = SettlementCalculator.providerNoShow(r.hoursFee().amount(), r.travelFee().amount());
         BigDecimal paid = r.hoursFee().amount().add(r.travelFee().amount());
         assertTrue(s.total().compareTo(paid) >= 0);
         assertEquals(0, BigDecimal.ZERO.compareTo(s.toProvider()));
@@ -65,7 +75,7 @@ class SettlementExactValueIntentTest {
     @Test
     void customerNoShowConservesTotalAndPaysProvider() {
         Reservation r = reservedWithTier(CancellationTier.STANDARD);
-        Settlement s = r.settleCustomerNoShow();
+        Settlement s = SettlementCalculator.customerNoShow(r.hoursFee().amount(), r.travelFee().amount());
         BigDecimal paid = r.hoursFee().amount().add(r.travelFee().amount());
         assertEquals(0, s.total().compareTo(paid));
         assertEquals(0, BigDecimal.ZERO.compareTo(s.toHoma()));
