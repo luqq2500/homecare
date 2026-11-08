@@ -1,8 +1,6 @@
 package customer.usecase;
 
 import customer.domain.Customer;
-import customer.usecase.dto.RegisterCustomerRequest;
-import customer.usecase.dto.RegisterCustomerResponse;
 import customer.usecase.port.out.CustomerRepository;
 import org.junit.jupiter.api.Test;
 
@@ -16,8 +14,8 @@ class RegisterCustomerTest {
 
     @Test
     void registerSavesCustomerAndReturnsId() {
-        RegisterCustomerResponse response = usecase.register(new RegisterCustomerRequest("Aina"));
-        assertNotNull(response.customerId());
+        String customerId = usecase.register("Aina");
+        assertNotNull(customerId);
         verify(repository).save(any(Customer.class));
     }
 }
