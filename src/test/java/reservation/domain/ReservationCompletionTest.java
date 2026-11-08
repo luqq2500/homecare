@@ -34,7 +34,9 @@ class ReservationCompletionTest {
     void moveToCompletedFromReservedAfterDisputeWindow() {
         Reservation r = newRequested();
         r.accept(NOW.plusSeconds(60));
-        r.moveToCompletedAfterDisputeWindowOrResolution(NOW.plusSeconds(7200));
+        r.markJobCompletedWithEvidence("ev", NOW.plusSeconds(3600));
+        Instant afterWindow = r.disputeWindowEnd().plusSeconds(1);
+        r.moveToCompletedAfterDisputeWindowOrResolution(afterWindow);
         assertEquals(ReservationStatus.COMPLETED, r.status());
     }
 
@@ -42,8 +44,8 @@ class ReservationCompletionTest {
     void moveToCompletedFromDisputedAfterResolution() {
         Reservation r = newRequested();
         r.accept(NOW.plusSeconds(60));
-        r.markDisputed();
-        r.moveToCompletedAfterDisputeWindowOrResolution(NOW.plusSeconds(7200));
+        r.fileDispute(DisputeType.PROBLEM_WITH_FINISHED_WORK, "issue", NOW.plusSeconds(60));
+        r.resolveDispute(DisputeResolution.FULL_REFUND, NOW.plusSeconds(120));
         assertEquals(ReservationStatus.COMPLETED, r.status());
     }
 }
