@@ -22,14 +22,15 @@ class MarkJobCompletedTest {
     @Test
     void markJobCompletedKeepsStatusReserved() {
         ReservationId id = ReservationId.generate();
+        Instant pastStart = Instant.now().minusSeconds(2 * 3600);
         Reservation reservation = Reservation.request(
-                id, Instant.now(),
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
-                HoursFee.of(new BigDecimal("25.00"), 1, 2),
+                id, Instant.now().minusSeconds(3 * 3600),
+                BookedWindow.of(pastStart, 1),
+                HoursFee.of(new BigDecimal("25.00"), 1, 1),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
         );
-        reservation.accept(Instant.now());
+        reservation.accept(Instant.now().minusSeconds(2 * 3600));
         when(repository.findById(id)).thenReturn(Optional.of(reservation));
 
         MarkJobCompletedResponse response = usecase.markCompleted(new MarkJobCompletedRequest(id.value()));
