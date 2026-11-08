@@ -1,6 +1,8 @@
 package reservation.domain;
 
 import org.junit.jupiter.api.Test;
+import payment.domain.Settlement;
+import payment.domain.SettlementCalculator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,7 +28,9 @@ class SettlementIntentTest {
     @Test
     void settleCustomerCancelReturnsProviderAndCustomerShare() {
         Reservation r = reserved();
-        Settlement s = r.settleCustomerCancel(START.minusSeconds(5 * 3600));
+        Settlement s = SettlementCalculator.customerCancel(
+                r.hoursFee().amount(), r.travelFee().amount(),
+                r.cancellationTier().feePercent(), false);
         assertTrue(s.toProvider().signum() >= 0);
         assertTrue(s.toCustomer().signum() >= 0);
         assertEquals(0, s.total().compareTo(r.hoursFee().amount().add(r.travelFee().amount())));
@@ -35,7 +39,7 @@ class SettlementIntentTest {
     @Test
     void settleProviderNoShowReturnsFullRefundAndFine() {
         Reservation r = reserved();
-        Settlement s = r.settleProviderNoShow();
+        Settlement s = SettlementCalculator.providerNoShow(r.hoursFee().amount(), r.travelFee().amount());
         assertEquals(0, BigDecimal.ZERO.compareTo(s.toProvider()));
         assertTrue(s.toCustomer().signum() > 0);
         assertTrue(s.toHoma().signum() > 0);
@@ -44,7 +48,7 @@ class SettlementIntentTest {
     @Test
     void settleCustomerNoShowReturnsCompensationAndRefund() {
         Reservation r = reserved();
-        Settlement s = r.settleCustomerNoShow();
+        Settlement s = SettlementCalculator.customerNoShow(r.hoursFee().amount(), r.travelFee().amount());
         assertTrue(s.toProvider().signum() > 0);
         assertTrue(s.toCustomer().signum() >= 0);
         assertEquals(0, BigDecimal.ZERO.compareTo(s.toHoma()));
