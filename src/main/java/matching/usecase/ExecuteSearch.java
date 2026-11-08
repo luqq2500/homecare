@@ -1,8 +1,8 @@
 package matching.usecase;
 
-import matching.MatchResult;
-import matching.ProviderCandidate;
-import matching.SearchCriteria;
+import matching.domain.MatchResult;
+import matching.domain.ProviderCandidate;
+import matching.domain.SearchCriteria;
 import matching.usecase.dto.SearchRequest;
 import matching.usecase.dto.SearchResponse;
 import matching.usecase.port.in.SearchExecutor;
