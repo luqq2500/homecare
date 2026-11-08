@@ -31,11 +31,12 @@ public class RefundPayment implements PaymentRefunder {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
-        BigDecimal amount = request.amount() == null ? payment.amount() : request.amount();
-        payment.refund(amount);
+        BigDecimal amount = request.amount() == null ? payment.authorisedAmount() : request.amount();
+        Instant now = Instant.now();
+        payment.refund(amount, now);
         gateway.refund(id.value(), amount);
         repository.save(payment);
-        publisher.publish(new PaymentRefundedIE(id.value(), Instant.now()));
+        publisher.publish(new PaymentRefundedIE(id.value(), now));
         return new RefundPaymentResponse(id.value(), payment.status().name());
     }
 }
