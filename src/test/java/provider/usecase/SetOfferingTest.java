@@ -5,6 +5,7 @@ import provider.domain.*;
 import provider.usecase.dto.SetOfferingRequest;
 import provider.usecase.dto.SetOfferingResponse;
 import provider.usecase.exception.ProviderNotFoundException;
+import provider.usecase.port.out.ProviderIEPublisher;
 import provider.usecase.port.out.ProviderRepository;
 
 import java.math.BigDecimal;
@@ -17,7 +18,8 @@ import static org.mockito.Mockito.*;
 class SetOfferingTest {
 
     private final ProviderRepository repository = mock(ProviderRepository.class);
-    private final SetOffering usecase = new SetOffering(repository);
+    private final ProviderIEPublisher publisher = mock(ProviderIEPublisher.class);
+    private final SetOffering usecase = new SetOffering(repository, publisher);
 
     @Test
     void setOfferingOnExistingProviderSavesAndReturnsEligibility() {
@@ -41,6 +43,7 @@ class SetOfferingTest {
         assertEquals(id.value(), response.providerId());
         assertTrue(response.canReceiveReservations());
         verify(repository).save(provider);
+        verify(publisher).publish(any());
     }
 
     @Test
