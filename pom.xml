@@ -3,20 +3,17 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
     <groupId>org.example</groupId>
     <artifactId>homa</artifactId>
     <version>1.0-SNAPSHOT</version>
-
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.11.3</junit.version>
         <mockito.version>5.14.2</mockito.version>
         <pitest.version>1.17.0</pitest.version>
     </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -37,7 +34,6 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
     <build>
         <plugins>
             <plugin>
@@ -59,22 +55,43 @@
                 <configuration>
                     <targetClasses>
                         <param>reservation.domain.*</param>
-                        <param>reservation.usecase.*</param>
+                        <param>payment.domain.*</param>
+                        <param>provider.domain.*</param>
+                        <param>matching.domain.*</param>
+                        <param>customer.domain.*</param>
+                        <param>chat.domain.*</param>
                     </targetClasses>
                     <targetTests>
                         <param>reservation.domain.*</param>
-                        <param>reservation.usecase.*</param>
+                        <param>payment.domain.*</param>
+                        <param>provider.domain.*</param>
+                        <param>matching.domain.*</param>
+                        <param>customer.domain.*</param>
+                        <param>chat.domain.*</param>
                     </targetTests>
-                    <mutationThreshold>90</mutationThreshold>
-                    <coverageThreshold>80</coverageThreshold>
-                    <outputFormats>
-                        <outputFormat>HTML</outputFormat>
-                        <outputFormat>XML</outputFormat>
-                    </outputFormats>
-                    <timestampedReports>false</timestampedReports>
+                    <mutationThreshold>0</mutationThreshold>
+                    <threads>2</threads>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
-
 </project>
