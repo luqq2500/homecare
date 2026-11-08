@@ -25,6 +25,9 @@ public class HandleReservationRequested implements ReservationRequestedHandler {
 
     @Override
     public void handle(ReservationRequestedIE event) {
+        if (repository.findByReservationId(event.reservationId()).isPresent()) {
+            return;
+        }
         PaymentId id = PaymentId.generate();
         Payment payment = Payment.authorise(id, event.reservationId(), event.amount());
         gateway.authorise(event.reservationId(), event.amount());
