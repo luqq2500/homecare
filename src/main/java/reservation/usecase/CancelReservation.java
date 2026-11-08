@@ -10,6 +10,7 @@ import reservation.usecase.port.out.ReservationRepository;
 import reservation.usecase.port.out.ReservationIEPublisher;
 import ie.ReservationCancelledIE;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class CancelReservation implements ReservationCanceller {
@@ -27,13 +28,19 @@ public class CancelReservation implements ReservationCanceller {
         ReservationId id = ReservationId.of(request.reservationId());
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
+        Instant now = Instant.now();
         if ("CUSTOMER".equals(request.cancelledBy())) {
-            reservation.cancelByCustomer(Instant.now());
+            reservation.cancelByCustomer(now);
         } else {
-            reservation.cancelByProvider(Instant.now());
+            reservation.cancelByProvider(now);
         }
         repository.save(reservation);
-        publisher.publish(new ReservationCancelledIE(id.value(), Instant.now()));
+        BigDecimal total = reservation.hoursFee().amount().add(reservation.travelFee().amount());
+        BigDecimal fee = reservation.customerCancellationFee(now);
+        BigDecimal toProvider = fee;
+        BigDecimal toCustomer = total.subtract(fee);
+        BigDecimal toHoma = BigDecimal.ZERO;
+        publisher.publish(new ReservationCancelledIE(id.value(), toProvider, toCustomer, toHoma, now));
         return new CancelReservationResponse(id.value(), reservation.status().name());
     }
 }
