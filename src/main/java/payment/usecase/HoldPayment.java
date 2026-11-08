@@ -30,10 +30,11 @@ public class HoldPayment implements PaymentHolder {
         PaymentId id = PaymentId.of(request.paymentId());
         Payment payment = repository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found: " + id.value()));
-        payment.hold();
-        gateway.capture(id.value(), payment.amount());
+        Instant now = Instant.now();
+        payment.hold(now);
+        gateway.capture(id.value());
         repository.save(payment);
-        publisher.publish(new PaymentHeldIE(id.value(), Instant.now()));
+        publisher.publish(new PaymentHeldIE(id.value(), now));
         return new HoldPaymentResponse(id.value(), payment.status().name());
     }
 }
