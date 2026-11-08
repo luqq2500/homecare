@@ -118,16 +118,19 @@ public class Reservation {
     }
 
     public void fileDispute(DisputeType type, String reason, Instant now) {
-        if (status != ReservationStatus.RESERVED && status != ReservationStatus.COMPLETED) {
-            throw new InvalidStatusTransitionException("Can only dispute from RESERVED or COMPLETED");
+        if (status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Dispute only allowed while RESERVED");
+        }
+        if (this.dispute != null) {
+            throw new InvalidStatusTransitionException("Only one dispute allowed per reservation");
         }
         this.dispute = Dispute.file(type, reason, now);
         this.status = ReservationStatus.DISPUTED;
     }
 
-    public void resolveDispute(String resolution, Instant now) {
-        if (status != ReservationStatus.DISPUTED) {
-            throw new InvalidStatusTransitionException("Can only resolve from DISPUTED");
+    public void resolveDispute(DisputeResolution resolution, Instant now) {
+        if (status != ReservationStatus.DISPUTED || this.dispute == null) {
+            throw new InvalidStatusTransitionException("No open dispute to resolve");
         }
         this.dispute.resolve(resolution);
         this.status = ReservationStatus.COMPLETED;
@@ -137,14 +140,27 @@ public class Reservation {
         }
     }
 
+    public void markJobCompletedWithEvidence(String evidenceReference, Instant now) {
+        if (status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Can only mark job completed while RESERVED");
+        }
+        if (now.isBefore(bookedWindow.start())) {
+            throw new InvalidStatusTransitionException("Cannot complete before booked start");
+        }
+        this.completionEvidence = CompletionEvidence.of(evidenceReference, now);
+        this.completionSubmittedAt = now;
+        this.completedAt = now;
+    }
+
+    public void markJobCompletedWithEvidence(Instant now) {
+        markJobCompletedWithEvidence("evidence-pending", now);
+    }
+
     public void moveToCompletedAfterDisputeWindowOrResolution(Instant now) {
         if (status == ReservationStatus.DISPUTED) {
             throw new InvalidStatusTransitionException("Resolve dispute first");
         }
-        if (status != ReservationStatus.RESERVED) {
-            throw new InvalidStatusTransitionException("Can only complete from RESERVED");
-        }
-        if (completionEvidence == null) {
+        if (status != ReservationStatus.RESERVED || completionEvidence == null) {
             throw new InvalidStatusTransitionException("Needs evidence and RESERVED");
         }
         if (now.isBefore(disputeWindowEnd())) {
@@ -156,17 +172,80 @@ public class Reservation {
         }
     }
 
-    public void markJobCompletedWithEvidence(String evidenceReference, Instant now) {
-        if (status != ReservationStatus.RESERVED) {
-            throw new InvalidStatusTransitionException("Can only complete from RESERVED");
-        }
-        if (now.isBefore(bookedWindow.start())) {
-            throw new InvalidStatusTransitionException("Cannot complete before start");
-        }
-        this.completionEvidence = CompletionEvidence.of(evidenceReference, now);
-        this.completionSubmittedAt = now;
-        this.completedAt = now;
+    public BigDecimal customerNoShowCompensation() {
+        BigDecimal hoursPortion = hoursFee.amount().multiply(new java.math.BigDecimal(HomaPolicy.PROVIDER_NO_SHOW_FINE_PERCENT).divide(new java.math.BigDecimal(100))).setScale(2, RoundingMode.HALF_UP);
+        return travelFee.amount().add(hoursPortion);
     }
+
+    public BigDecimal customerCancellationFee(Instant now, boolean travelIncludedInPrice) {
+        if (status != ReservationStatus.REQUESTED && status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Cancellation fee only applicable while cancellable");
+        }
+        if (status == ReservationStatus.REQUESTED) {
+            return BigDecimal.ZERO;
+        }
+        Instant feeWindowStart = bookedWindow.start().minusSeconds(HomaPolicy.REQUEST_EXPIRY_HOURS * 3600);
+        if (!now.isAfter(feeWindowStart)) {
+            return BigDecimal.ZERO;
+        }
+        if (!now.isBefore(bookedWindow.start())) {
+            return customerNoShowCompensation();
+        }
+        int percent = cancellationTier.feePercent();
+        BigDecimal base = travelIncludedInPrice
+                ? hoursFee.amount().add(travelFee.amount())
+                : hoursFee.amount();
+        BigDecimal fee = base.multiply(BigDecimal.valueOf(percent))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        return fee.min(customerNoShowCompensation());
+    }
+
+    public BigDecimal customerCancellationFee(Instant now) {
+        return customerCancellationFee(now, false);
+    }
+
+    public void recordCheckIn(Instant now, GeoLocation providerLocation, GeoLocation customerLocation) {
+        if (now.isBefore(bookedWindow.start())) {
+            throw new InvalidStatusTransitionException("Check-in not yet open");
+        }
+        if (status != ReservationStatus.RESERVED) {
+            throw new InvalidStatusTransitionException("Check-in only allowed while RESERVED");
+        }
+        this.checkIn = CheckIn.record(now, bookedWindow.start(), providerLocation, customerLocation);
+    }
+
+    public boolean hasCheckedIn() {
+        return checkIn != null;
+    }
+
+    public CheckIn checkIn() {
+        return checkIn;
+    }
+
+    public boolean isExpired(Instant now) {
+        Instant expiry = requestedAt.plusSeconds(HomaPolicy.REQUEST_EXPIRY_HOURS * 3600);
+        Instant effectiveExpiry = expiry.isBefore(bookedWindow.start()) ? expiry : bookedWindow.start();
+        return !now.isBefore(effectiveExpiry);
+    }
+
+    public ReservationId id() { return id; }
+    public Instant requestedAt() { return requestedAt; }
+    public BookedWindow bookedWindow() { return bookedWindow; }
+    public HoursFee hoursFee() { return hoursFee; }
+    public TravelFee travelFee() { return travelFee; }
+    public CancellationTier cancellationTier() { return cancellationTier; }
+    public ReservationStatus status() { return status; }
+    public Instant acceptedAt() { return acceptedAt; }
+    public Instant completedAt() { return completedAt; }
+    public Instant completionSubmittedAt() { return completionSubmittedAt; }
+    public Instant resolvedAt() { return resolvedAt; }
+    public Dispute dispute() { return dispute; }
+    public CompletionEvidence completionEvidence() { return completionEvidence; }
+    public String customerId() { return customerId; }
+    public String providerId() { return providerId; }
+    public java.util.List<String> jobs() { return jobs; }
+    public PricingSnapshot pricingSnapshot() { return pricingSnapshot; }
+    public Cancellation cancellation() { return cancellation; }
 
     public Instant disputeWindowEnd() {
         Instant bookedEnd = bookedWindow.start().plusSeconds(bookedWindow.durationHours() * 3600L);
@@ -195,51 +274,6 @@ public class Reservation {
         this.status = ReservationStatus.DISPUTED;
     }
 
-    public BigDecimal customerCancellationFee(Instant now) {
-        return customerCancellationFee(now, false);
-    }
-
-    public void recordCheckIn(Instant now, GeoLocation providerLocation, GeoLocation customerLocation) {
-        if (now.isBefore(bookedWindow.start())) {
-            throw new InvalidStatusTransitionException("Check-in not yet open");
-        }
-        if (status != ReservationStatus.RESERVED) {
-            throw new InvalidStatusTransitionException("Check-in only allowed while RESERVED");
-        }
-        this.checkIn = CheckIn.record(now, bookedWindow.start(), providerLocation, customerLocation);
-    }
-
-    public boolean hasCheckedIn() {
-        return checkIn != null;
-    }
-
-    public BigDecimal customerCancellationFee(Instant now, boolean travelIncluded) {
-        if (status == ReservationStatus.REQUESTED) {
-            return BigDecimal.ZERO;
-        }
-        if (now.isAfter(bookedWindow.start()) || hasCheckedIn()) {
-            return customerNoShowCompensation();
-        }
-        Instant feeWindowStart = bookedWindow.start().minusSeconds(HomaPolicy.REQUEST_EXPIRY_HOURS * 3600);
-        if (!now.isAfter(feeWindowStart)) {
-            return BigDecimal.ZERO;
-        }
-        BigDecimal percent = switch (cancellationTier) {
-            case FLEXIBLE -> BigDecimal.ZERO;
-            case STANDARD -> new BigDecimal("0.10");
-            case FIRM -> new BigDecimal("0.20");
-        };
-        BigDecimal base = travelIncluded ? hoursFee.amount().add(travelFee.amount()) : hoursFee.amount();
-        BigDecimal fee = base.multiply(percent).setScale(2, RoundingMode.HALF_UP);
-        return fee.min(customerNoShowCompensation());
-    }
-
-    public BigDecimal customerNoShowCompensation() {
-        return travelFee.amount().add(
-                hoursFee.amount().multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP)
-        );
-    }
-
     public void reportProviderNoShow(Instant now) {
         if (status != ReservationStatus.RESERVED || hasCheckedIn()) {
             throw new InvalidStatusTransitionException("Provider no-show only when Reserved and not checked in");
@@ -254,29 +288,6 @@ public class Reservation {
         }
         this.cancellation = Cancellation.of(Cancellation.By.CUSTOMER, Cancellation.Reason.CUSTOMER_NO_SHOW, now);
         this.status = ReservationStatus.CANCELLED;
-    }
-
-    public ReservationId id() { return id; }
-    public Instant requestedAt() { return requestedAt; }
-    public BookedWindow bookedWindow() { return bookedWindow; }
-    public HoursFee hoursFee() { return hoursFee; }
-    public TravelFee travelFee() { return travelFee; }
-    public CancellationTier cancellationTier() { return cancellationTier; }
-    public ReservationStatus status() { return status; }
-    public Instant acceptedAt() { return acceptedAt; }
-    public Instant completedAt() { return completedAt; }
-    public CheckIn checkIn() { return checkIn; }
-    public Dispute dispute() { return dispute; }
-    public CompletionEvidence completionEvidence() { return completionEvidence; }
-    public String customerId() { return customerId; }
-    public String providerId() { return providerId; }
-    public java.util.List<String> jobs() { return jobs; }
-    public PricingSnapshot pricingSnapshot() { return pricingSnapshot; }
-    public Cancellation cancellation() { return cancellation; }
-
-    public boolean isExpired(Instant now) {
-        return status == ReservationStatus.REQUESTED
-                && now.isAfter(requestedAt.plusSeconds(HomaPolicy.REQUEST_EXPIRY_HOURS * 3600));
     }
 
     public static Reservation requestWithIdentity(ReservationId id, Instant requestedAt,
