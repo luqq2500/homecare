@@ -5,6 +5,7 @@ import reservation.domain.*;
 import reservation.usecase.dto.DeclineReservationRequest;
 import reservation.usecase.dto.DeclineReservationResponse;
 import reservation.usecase.exception.ReservationNotFoundException;
+import reservation.usecase.port.out.ReservationIEPublisher;
 import reservation.usecase.port.out.ReservationRepository;
 
 import java.math.BigDecimal;
@@ -17,14 +18,18 @@ import static org.mockito.Mockito.*;
 class DeclineReservationTest {
 
     private final ReservationRepository repository = mock(ReservationRepository.class);
-    private final DeclineReservation usecase = new DeclineReservation(repository);
+    private final ReservationIEPublisher publisher = mock(ReservationIEPublisher.class);
+    private final DeclineReservation usecase = new DeclineReservation(repository, publisher);
 
     @Test
     void declineFromRequestedTransitionsToDeclined() {
         ReservationId id = ReservationId.generate();
+        Instant now = Instant.now();
+        Instant start = now.plusSeconds(4 * 3600);
+        start = start.minusSeconds(start.getEpochSecond() % (15 * 60));
         Reservation reservation = Reservation.request(
-                id, Instant.now(),
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
+                id, now.minusSeconds(3600),
+                BookedWindow.of(start, 2),
                 HoursFee.of(new BigDecimal("25.00"), 1, 2),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
@@ -35,6 +40,7 @@ class DeclineReservationTest {
 
         assertEquals("DECLINED", response.status());
         verify(repository).save(reservation);
+        verify(publisher).publish(any());
     }
 
     @Test
