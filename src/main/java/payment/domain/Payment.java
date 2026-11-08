@@ -8,7 +8,7 @@ import java.util.Objects;
 
 /**
  * Aggregate root for a Homa payment.
- * Orthogonal state machine: Authorised → Held → Released / Refunded.
+ * Orthogonal state machine: Authorised → Held → Released / Refunded / Voided.
  */
 public class Payment {
 
@@ -67,6 +67,29 @@ public class Payment {
         this.refundedAt = now;
         if (this.refundedAmount.compareTo(authorisedAmount) == 0) {
             this.status = PaymentStatus.REFUNDED;
+        }
+    }
+
+    public void voidAuthorisation(Instant now) {
+        if (status != PaymentStatus.AUTHORISED) {
+            throw new IllegalPaymentTransitionException("Can only void from AUTHORISED");
+        }
+        this.status = PaymentStatus.VOIDED;
+        this.refundedAt = now;
+    }
+
+    public void settle(BigDecimal toProvider, BigDecimal toCustomer, Instant now) {
+        if (status != PaymentStatus.HELD && status != PaymentStatus.AUTHORISED) {
+            throw new IllegalPaymentTransitionException("Can only settle from HELD or AUTHORISED");
+        }
+        if (toCustomer.compareTo(BigDecimal.ZERO) > 0) {
+            if (status == PaymentStatus.AUTHORISED) {
+                this.status = PaymentStatus.HELD;
+                this.heldAt = now;
+            }
+            refund(toCustomer, now);
+        } else if (status == PaymentStatus.HELD) {
+            release(now);
         }
     }
 
