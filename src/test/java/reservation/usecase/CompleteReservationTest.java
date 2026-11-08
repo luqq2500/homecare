@@ -2,6 +2,7 @@ package reservation.usecase;
 
 import org.junit.jupiter.api.Test;
 import reservation.domain.*;
+import reservation.domain.exception.InvalidStatusTransitionException;
 import reservation.usecase.dto.CompleteReservationRequest;
 import reservation.usecase.dto.CompleteReservationResponse;
 import reservation.usecase.exception.ReservationNotFoundException;
@@ -22,14 +23,16 @@ class CompleteReservationTest {
     @Test
     void completeFromReservedAfterDisputeWindowTransitionsToCompleted() {
         ReservationId id = ReservationId.generate();
+        Instant pastStart = Instant.now().minusSeconds(4 * 3600);
         Reservation reservation = Reservation.request(
-                id, Instant.now(),
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
-                HoursFee.of(new BigDecimal("25.00"), 1, 2),
+                id, Instant.now().minusSeconds(5 * 3600),
+                BookedWindow.of(pastStart, 1),
+                HoursFee.of(new BigDecimal("25.00"), 1, 1),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
         );
-        reservation.accept(Instant.now());
+        reservation.accept(Instant.now().minusSeconds(4 * 3600));
+        reservation.markJobCompletedWithEvidence("ev", Instant.now().minusSeconds(3 * 3600));
         when(repository.findById(id)).thenReturn(Optional.of(reservation));
 
         CompleteReservationResponse response = usecase.complete(new CompleteReservationRequest(id.value()));
@@ -40,23 +43,21 @@ class CompleteReservationTest {
     }
 
     @Test
-    void completeFromDisputedAfterResolutionTransitionsToCompleted() {
+    void completeFromDisputedBeforeResolutionIsRejected() {
         ReservationId id = ReservationId.generate();
         Reservation reservation = Reservation.request(
-                id, Instant.now(),
-                BookedWindow.of(Instant.parse("2026-11-08T14:00:00Z"), 2),
-                HoursFee.of(new BigDecimal("25.00"), 1, 2),
+                id, Instant.now().minusSeconds(3600),
+                BookedWindow.of(Instant.now().minusSeconds(1800), 1),
+                HoursFee.of(new BigDecimal("25.00"), 1, 1),
                 TravelFee.ZERO,
                 CancellationTier.STANDARD
         );
-        reservation.accept(Instant.now());
+        reservation.accept(Instant.now().minusSeconds(1800));
         reservation.markDisputed();
         when(repository.findById(id)).thenReturn(Optional.of(reservation));
 
-        CompleteReservationResponse response = usecase.complete(new CompleteReservationRequest(id.value()));
-
-        assertEquals("COMPLETED", response.status());
-        verify(repository).save(reservation);
+        assertThrows(InvalidStatusTransitionException.class,
+                () -> usecase.complete(new CompleteReservationRequest(id.value())));
     }
 
     @Test
