@@ -1,5 +1,6 @@
 package payment.usecase;
 
+import ie.PaymentRefundedIE;
 import org.junit.jupiter.api.Test;
 import payment.domain.Payment;
 import payment.domain.PaymentId;
@@ -20,9 +21,9 @@ import static org.mockito.Mockito.*;
 class RefundPaymentTest {
 
     private final PaymentRepository repository = mock(PaymentRepository.class);
-    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
     private final PaymentGateway gateway = mock(PaymentGateway.class);
-    private final RefundPayment usecase = new RefundPayment(repository, publisher, gateway);
+    private final PaymentIEPublisher publisher = mock(PaymentIEPublisher.class);
+    private final RefundPayment usecase = new RefundPayment(repository, gateway, publisher);
 
     @Test
     void refundExistingHeldPaymentRefundsAmountAndPublishes() {
@@ -39,7 +40,9 @@ class RefundPaymentTest {
         assertEquals("40.00", response.refundedAmount());
         verify(gateway).refund(id.value(), new BigDecimal("40.00"));
         verify(repository).save(payment);
-        verify(publisher).publishRefunded(id);
+        verify(publisher).publish(argThat(event ->
+                event instanceof PaymentRefundedIE &&
+                ((PaymentRefundedIE) event).paymentId().equals(id.value())));
     }
 
     @Test
