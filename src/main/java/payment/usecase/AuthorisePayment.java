@@ -27,7 +27,7 @@ public class AuthorisePayment implements PaymentAuthoriser {
     @Override
     public AuthorisePaymentResponse authorise(AuthorisePaymentRequest request) {
         PaymentId id = PaymentId.generate();
-        Payment payment = Payment.authorise(id, request.amount());
+        Payment payment = Payment.authorise(id, request.reservationId(), request.amount());
         gateway.authorise(id.value(), request.amount());
         repository.save(payment);
         publisher.publish(new PaymentAuthorisedIE(id.value(), Instant.now()));
