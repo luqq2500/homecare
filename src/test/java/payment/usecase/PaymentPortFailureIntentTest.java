@@ -3,8 +3,6 @@ package payment.usecase;
 import ie.ReservationRequestedIE;
 import ie.ReservationAcceptedIE;
 import ie.ReservationCancelledIE;
-import payment.domain.Payment;
-import payment.domain.PaymentId;
 import payment.usecase.exception.PaymentNotFoundException;
 import payment.usecase.port.out.PaymentRepository;
 import payment.usecase.port.out.PaymentGateway;
@@ -44,7 +42,6 @@ class PaymentPortFailureIntentTest {
                         new BigDecimal("20.00"),
                         new BigDecimal("80.00"),
                         BigDecimal.ZERO,
-                        new BigDecimal("100.00"),
                         Instant.now()
                 )));
     }
