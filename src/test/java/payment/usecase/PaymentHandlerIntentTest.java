@@ -87,7 +87,6 @@ class PaymentHandlerIntentTest {
                 new BigDecimal("20.00"),
                 new BigDecimal("80.00"),
                 BigDecimal.ZERO,
-                new BigDecimal("100.00"),
                 Instant.now()
         ));
 
