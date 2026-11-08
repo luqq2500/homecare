@@ -248,7 +248,7 @@ public class Reservation {
     public Cancellation cancellation() { return cancellation; }
 
     public Instant disputeWindowEnd() {
-        Instant bookedEnd = bookedWindow.start().plusSeconds(bookedWindow.durationHours() * 3600L);
+        Instant bookedEnd = bookedWindow.start().plusSeconds(bookedWindow.hours() * 3600L);
         Instant completionPlusOne = (completedAt != null) ? completedAt.plusSeconds(3600) : bookedEnd;
         return bookedEnd.isAfter(completionPlusOne) ? bookedEnd.plusSeconds(3600) : completionPlusOne;
     }
