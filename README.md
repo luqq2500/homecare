@@ -1,4 +1,4 @@
-# Homa
+# Homecare
 
 On-demand home care platform. Customers book provider time; providers accept, check in, complete, and get paid. Business rules live in the domain.
 
