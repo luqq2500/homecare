@@ -29,14 +29,14 @@ public class CancelReservation implements ReservationCanceller {
         Reservation reservation = repository.findById(id)
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
         Instant now = Instant.now();
+        BigDecimal total = reservation.hoursFee().amount().add(reservation.travelFee().amount());
+        BigDecimal fee = reservation.customerCancellationFee(now);
         if ("CUSTOMER".equals(request.cancelledBy())) {
             reservation.cancelByCustomer(now);
         } else {
             reservation.cancelByProvider(now);
         }
         repository.save(reservation);
-        BigDecimal total = reservation.hoursFee().amount().add(reservation.travelFee().amount());
-        BigDecimal fee = reservation.customerCancellationFee(now);
         BigDecimal toProvider = fee;
         BigDecimal toCustomer = total.subtract(fee);
         BigDecimal toHoma = BigDecimal.ZERO;
