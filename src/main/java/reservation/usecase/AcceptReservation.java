@@ -10,6 +10,7 @@ import reservation.usecase.port.out.ReservationRepository;
 import reservation.usecase.port.out.ReservationIEPublisher;
 import ie.ReservationAcceptedIE;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 public class AcceptReservation implements ReservationAcceptor {
@@ -29,7 +30,8 @@ public class AcceptReservation implements ReservationAcceptor {
                 .orElseThrow(() -> new ReservationNotFoundException("Reservation not found: " + id.value()));
         reservation.accept(Instant.now());
         repository.save(reservation);
-        publisher.publish(new ReservationAcceptedIE(id.value(), Instant.now()));
+        BigDecimal amount = reservation.hoursFee().amount().add(reservation.travelFee().amount());
+        publisher.publish(new ReservationAcceptedIE(id.value(), reservation.providerId(), amount, Instant.now()));
         return new AcceptReservationResponse(id.value(), reservation.status().name());
     }
 }
