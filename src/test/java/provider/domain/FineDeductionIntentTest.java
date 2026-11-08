@@ -2,35 +2,40 @@ package provider.domain;
 
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class FineDeductionIntentTest {
 
     @Test
-    void outstandingFinesAccumulate() {
+    void applyFineSetsUnpaidFlag() {
         Provider provider = Provider.register(ProviderId.generate(), "Aina");
-        provider.applyFine("res-1", new BigDecimal("30.00"), Instant.now());
-        provider.applyFine("res-2", new BigDecimal("20.00"), Instant.now());
-        assertEquals(0, new BigDecimal("50.00").compareTo(provider.outstandingFines()));
+        assertFalse(provider.hasUnpaidFine());
+        provider.applyFine();
+        assertTrue(provider.hasUnpaidFine());
     }
 
     @Test
-    void waiveClearsSpecificFine() {
+    void clearFineRemovesUnpaidFlag() {
         Provider provider = Provider.register(ProviderId.generate(), "Aina");
-        provider.applyFine("res-1", new BigDecimal("30.00"), Instant.now());
-        provider.waiveFine("res-1");
-        assertEquals(0, BigDecimal.ZERO.compareTo(provider.outstandingFines()));
+        provider.applyFine();
+        provider.clearFine();
+        assertFalse(provider.hasUnpaidFine());
     }
 
     @Test
-    void unpaidFineBlocksLive() {
+    void unpaidFineBlocksNewReservations() {
         Provider provider = Provider.register(ProviderId.generate(), "Aina");
         provider.markKycVerified();
-        provider.applyFine("res-1", new BigDecimal("30.00"), Instant.now());
-        assertTrue(provider.hasUnpaidFine());
-        assertFalse(provider.isLive());
+        provider.setOffering(Offering.of(
+                java.util.List.of("Kitchen"),
+                java.util.List.of("Vacuum"),
+                new java.math.BigDecimal("25.00"),
+                1, 4, 1,
+                CancellationTier.STANDARD,
+                false
+        ));
+        assertTrue(provider.canReceiveNewReservations());
+        provider.applyFine();
+        assertFalse(provider.canReceiveNewReservations());
     }
 }
